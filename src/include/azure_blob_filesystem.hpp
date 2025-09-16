@@ -1,10 +1,11 @@
 #pragma once
 
+#include "azure_filesystem.hpp"
+#include "azure_parsed_url.hpp"
 #include "duckdb.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/unique_ptr.hpp"
-#include "azure_parsed_url.hpp"
-#include "azure_filesystem.hpp"
+
 #include <azure/storage/blobs/blob_client.hpp>
 #include <azure/storage/blobs/blob_service_client.hpp>
 #include <string>
@@ -31,6 +32,12 @@ public:
 
 public:
 	Azure::Storage::Blobs::BlobClient blob_client;
+
+	// protected: ?
+	// TODO: make this not just adhoc :)
+	bool RemoteLoadComplete() {
+		return last_modified != timestamp_t(0);
+	}
 };
 
 class AzureBlobStorageFileSystem : public AzureStorageFileSystem {
@@ -46,6 +53,8 @@ public:
 
 	// From AzureFilesystem
 	void LoadRemoteFileInfo(AzureFileHandle &handle) override;
+	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
+	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 
 public:
 	static const string SCHEME;

@@ -1,0 +1,39 @@
+
+# name: test/sql/azure_write.test
+# description: test azure extension writes
+# group: [azure]
+
+require azure
+
+require-env AZURE_STORAGE_CONNECTION_STRING
+
+require-env AZURE_STORAGE_ACCOUNT
+
+# Start with default provider
+statement ok
+CREATE SECRET s1 (
+    TYPE AZURE,
+    SCOPE 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private',
+    CONNECTION_STRING '${AZURE_STORAGE_CONNECTION_STRING}'
+)
+
+# Ensure that secret+basic read is functioning
+query I
+SELECT count(*) FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private/lineitem.csv';
+----
+60175
+
+query I
+COPY (SELECT id: 42) TO 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private/write-id-42.csv';
+----
+1
+
+query I
+SELECT count(*) FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private/write-id-42.csv';
+----
+1
+
+query I
+FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private/write-id-42.csv';
+----
+42

@@ -1,24 +1,18 @@
 #include "azure_blob_filesystem.hpp"
 
 #include "azure_storage_account_client.hpp"
-#include "duckdb.hpp"
 #include "duckdb/common/exception.hpp"
+#include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/shared_ptr.hpp"
-#include "azure_http_state.hpp"
-#include "duckdb/common/file_opener.hpp"
 #include "duckdb/common/string_util.hpp"
-#include "duckdb/main/secret/secret.hpp"
-#include "duckdb/main/secret/secret_manager.hpp"
 #include "duckdb/function/scalar/string_common.hpp"
-#include "duckdb/function/scalar_function.hpp"
-#include "duckdb/main/extension/extension_loader.hpp"
+#include "duckdb/logging/file_system_logger.hpp"
 #include "duckdb/main/client_data.hpp"
-#include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
+
 #include <azure/storage/blobs.hpp>
-#include <chrono>
+#include <azure/storage/blobs/blob_options.hpp>
 #include <cstdlib>
-#include <memory>
 #include <string>
 #include <utility>
 
@@ -151,8 +145,8 @@ vector<OpenFileInfo> AzureBlobStorageFileSystem::Glob(const string &path, FileOp
 				info.extended_info = make_shared_ptr<ExtendedOpenFileInfo>();
 				auto &options = info.extended_info->options;
 				options.emplace("file_size", Value::BIGINT(key.BlobSize));
-				options.emplace("last_modified", Value::TIMESTAMP(
-				                                     AzureStorageFileSystem::ToTimestamp(key.Details.LastModified)));
+				options.emplace("last_modified",
+				                Value::TIMESTAMP(AzureStorageFileSystem::ToTimestamp(key.Details.LastModified)));
 				result.push_back(info);
 			}
 		}
@@ -169,12 +163,19 @@ vector<OpenFileInfo> AzureBlobStorageFileSystem::Glob(const string &path, FileOp
 }
 
 void AzureBlobStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
-	auto &hfh = handle.Cast<AzureBlobStorageFileHandle>();
+	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
 
-	if (hfh.length == 0 && hfh.last_modified == timestamp_t(0)) {
-		auto res = hfh.blob_client.GetProperties();
-		hfh.length = res.Value.BlobSize;
-		hfh.last_modified = ToTimestamp(res.Value.LastModified);
+	// TODO: proper distinction between R, W, A (if A matters)
+	if (!afh.RemoteLoadComplete()) {
+		if (afh.flags.OpenForReading()) {
+			auto res = afh.blob_client.GetProperties();
+			afh.length = res.Value.BlobSize;
+			afh.last_modified = ToTimestamp(res.Value.LastModified);
+			afh.file_offset = 0;
+		} else if (afh.flags.OpenForAppending()) {
+			// TODO: easy
+			throw InternalException("Append not yet supported");
+		} /* else OpenForWriting() -> all 0s */
 	}
 }
 
@@ -220,6 +221,43 @@ shared_ptr<AzureContextState> AzureBlobStorageFileSystem::CreateStorageContext(o
 
 	return make_shared_ptr<AzureBlobContextState>(ConnectToBlobStorageAccount(opener, path, parsed_url),
 	                                              azure_read_options);
+}
+
+int64_t AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes) {
+	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
+	Write(handle, buffer, nr_bytes, afh.file_offset);
+	return nr_bytes;
+}
+
+void AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
+	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
+	auto &flags = afh.flags;
+
+	if (!(flags.OpenForWriting() || flags.OpenForAppending())) {
+		throw InternalException("Write called on file not opened in write or append mode");
+	}
+
+	if (flags.OpenForAppending()) {
+		if (location != afh.length) {
+			throw InternalException("Appen location bad!");
+		}
+		// TODO: currently one-shot, look ma no chunks or threads; one day do this.
+		auto append_client = afh.blob_client.AsAppendBlobClient();
+		auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
+		auto res = append_client.AppendBlock(body_stream);
+		afh.last_modified = ToTimestamp(res.Value.LastModified);
+		afh.file_offset += nr_bytes;
+	} else if (flags.OpenForWriting()) {
+		if (location != 0) {
+			throw InternalException("Write supported only at location=0");
+		}
+		auto res = afh.blob_client.AsBlockBlobClient().UploadFrom(static_cast<uint8_t *>(buffer), nr_bytes);
+		afh.last_modified = ToTimestamp(res.Value.LastModified);
+		afh.file_offset += nr_bytes;
+		afh.length += nr_bytes;
+	}
+
+	DUCKDB_LOG_FILE_SYSTEM_WRITE(handle, nr_bytes, afh.file_offset - nr_bytes);
 }
 
 } // namespace duckdb

@@ -1,15 +1,20 @@
 #include "azure_dfs_filesystem.hpp"
+
 #include "azure_storage_account_client.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/shared_ptr.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/function/scalar/string_common.hpp"
+#include "duckdb/logging/file_system_logger.hpp"
+
 #include <algorithm>
 #include <azure/storage/blobs/blob_options.hpp>
 #include <azure/storage/common/storage_exception.hpp>
-#include <azure/storage/files/datalake/datalake_file_system_client.hpp>
+#include <azure/storage/files/datalake.hpp>
 #include <azure/storage/files/datalake/datalake_directory_client.hpp>
 #include <azure/storage/files/datalake/datalake_file_client.hpp>
+#include <azure/storage/files/datalake/datalake_file_system_client.hpp>
 #include <azure/storage/files/datalake/datalake_options.hpp>
 #include <azure/storage/files/datalake/datalake_responses.hpp>
 #include <cstddef>
@@ -67,8 +72,8 @@ static void Walk(const Azure::Storage::Files::DataLake::DataLakeFileSystemClient
 					info.extended_info = make_shared_ptr<ExtendedOpenFileInfo>();
 					auto &options = info.extended_info->options;
 					options.emplace("file_size", Value::BIGINT(elt.FileSize));
-					options.emplace("last_modified", Value::TIMESTAMP(
-					                                     AzureStorageFileSystem::ToTimestamp(elt.LastModified)));
+					options.emplace("last_modified",
+					                Value::TIMESTAMP(AzureStorageFileSystem::ToTimestamp(elt.LastModified)));
 					out_result->push_back(info);
 				}
 			}
@@ -107,6 +112,11 @@ unique_ptr<AzureFileHandle> AzureDfsStorageFileSystem::CreateHandle(const OpenFi
 		throw InternalException("Cannot do Azure storage CreateHandle without FileOpener");
 	}
 
+	if (flags.OpenForReading() && flags.OpenForWriting()) {
+		throw NotImplementedException("Cannot open an Azure file for both reading and writing");
+	} else if (flags.OpenForAppending()) {
+		throw NotImplementedException("Cannot open an Azure file for appending");
+	}
 	D_ASSERT(flags.Compression() == FileCompressionType::UNCOMPRESSED);
 
 	auto parsed_url = ParseUrl(info.path);
@@ -170,12 +180,20 @@ vector<OpenFileInfo> AzureDfsStorageFileSystem::Glob(const string &path, FileOpe
 }
 
 void AzureDfsStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
-	auto &hfh = handle.Cast<AzureDfsStorageFileHandle>();
+	auto &afh = handle.Cast<AzureDfsStorageFileHandle>();
 
-	if (hfh.length == 0 && hfh.last_modified == timestamp_t(0)) {
-		auto res = hfh.file_client.GetProperties();
-		hfh.length = res.Value.FileSize;
-		hfh.last_modified = ToTimestamp(res.Value.LastModified);
+	if (afh.last_modified == timestamp_t(0)) {
+		if (afh.flags.OpenForReading() || !afh.flags.CreateFileIfNotExists()) {
+			auto res = afh.file_client.GetProperties();
+			afh.length = res.Value.FileSize;
+			afh.last_modified = ToTimestamp(res.Value.LastModified);
+		} else /* .CreateIfNotExists() && (.OpenForWriting() || .OpenForAppending()) */ {
+			// TODO: check opts
+			auto res = afh.file_client.CreateIfNotExists();
+			afh.last_modified = ToTimestamp(res.Value.LastModified);
+			// TODO: check whether this Value can be absent
+			afh.length = res.Value.Created ? 0 : res.Value.FileSize.Value();
+		}
 	}
 }
 
@@ -207,6 +225,28 @@ shared_ptr<AzureContextState> AzureDfsStorageFileSystem::CreateStorageContext(op
 
 	return make_shared_ptr<AzureDfsContextState>(ConnectToDfsStorageAccount(opener, path, parsed_url),
 	                                             azure_read_options);
+}
+
+int64_t AzureDfsStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes) {
+	auto &afh = handle.Cast<AzureDfsStorageFileHandle>();
+	Write(handle, buffer, nr_bytes, afh.file_offset);
+	return nr_bytes;
+}
+
+void AzureDfsStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
+	auto &afh = handle.Cast<AzureDfsStorageFileHandle>();
+	if (!afh.flags.OpenForWriting()) {
+		throw InternalException("Write called on file not opened in write mode");
+	}
+
+	// TODO: currently one-shot, look ma no chunks or threads; one day do this.
+	auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
+	afh.file_client.Append(body_stream, afh.file_offset);
+	auto res = afh.file_client.Flush(afh.file_offset + nr_bytes);
+	afh.last_modified = ToTimestamp(res.Value.LastModified);
+	afh.file_offset += nr_bytes;
+
+	DUCKDB_LOG_FILE_SYSTEM_WRITE(handle, nr_bytes, afh.file_offset - nr_bytes);
 }
 
 } // namespace duckdb
