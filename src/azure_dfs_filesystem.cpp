@@ -241,7 +241,7 @@ void AzureDfsStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t 
 
 	// TODO: currently one-shot, look ma no chunks or threads; one day do this.
 	auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
-	afh.file_client.Append(body_stream, afh.file_offset);
+	(void)afh.file_client.Append(body_stream, afh.file_offset);
 	auto res = afh.file_client.Flush(afh.file_offset + nr_bytes);
 	afh.last_modified = ToTimestamp(res.Value.LastModified);
 	afh.file_offset += nr_bytes;

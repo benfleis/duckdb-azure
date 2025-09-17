@@ -13,27 +13,21 @@ require-env AZURE_STORAGE_ACCOUNT
 statement ok
 CREATE SECRET s1 (
     TYPE AZURE,
-    SCOPE 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private',
+    SCOPE 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/write',
     CONNECTION_STRING '${AZURE_STORAGE_CONNECTION_STRING}'
 )
 
-# Ensure that secret+basic read is functioning
 query I
-SELECT count(*) FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private/lineitem.csv';
-----
-60175
-
-query I
-COPY (SELECT id: 42) TO 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private/write-id-42.csv';
+COPY (SELECT id: 42) TO 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/write/write-id-42.csv';
 ----
 1
 
 query I
-SELECT count(*) FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private/write-id-42.csv';
+SELECT count(*) FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/write/write-id-42.csv';
 ----
 1
 
 query I
-FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/testing-private/write-id-42.csv';
+FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/write/write-id-42.csv';
 ----
 42

@@ -6,10 +6,12 @@
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string_util.hpp"
+#include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/function/scalar/string_common.hpp"
 #include "duckdb/logging/file_system_logger.hpp"
 #include "duckdb/main/client_data.hpp"
 
+#include <azure/core/io/body_stream.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/blobs/blob_options.hpp>
 #include <cstdlib>
@@ -76,6 +78,9 @@ unique_ptr<AzureFileHandle> AzureBlobStorageFileSystem::CreateHandle(const OpenF
 	}
 
 	D_ASSERT(flags.Compression() == FileCompressionType::UNCOMPRESSED);
+	if (flags.OpenForAppending()) {
+		throw InternalException("Write in append mode not supported");
+	}
 
 	auto parsed_url = ParseUrl(info.path);
 	auto storage_context = GetOrCreateStorageContext(opener, info.path, parsed_url);
@@ -166,16 +171,19 @@ void AzureBlobStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
 
 	// TODO: proper distinction between R, W, A (if A matters)
+	afh.file_offset = 0;
 	if (!afh.RemoteLoadComplete()) {
-		if (afh.flags.OpenForReading()) {
+		if (afh.flags.OpenForWriting()) {
+			// NOTE: since append is unsupported, no point in loading for write, whether CREATE or not.
+			// Can check for IsSealed during first write instead of extra call here.
+			// TODO: experiment -- instead of opening for a 0-byte write, defer to first actual write and leave empty
+			afh.length = 0;
+			afh.last_modified = timestamp_t(0);
+		} else if (afh.flags.OpenForReading()) {
 			auto res = afh.blob_client.GetProperties();
 			afh.length = res.Value.BlobSize;
 			afh.last_modified = ToTimestamp(res.Value.LastModified);
-			afh.file_offset = 0;
-		} else if (afh.flags.OpenForAppending()) {
-			// TODO: easy
-			throw InternalException("Append not yet supported");
-		} /* else OpenForWriting() -> all 0s */
+		}
 	}
 }
 
@@ -233,31 +241,30 @@ void AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t
 	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
 	auto &flags = afh.flags;
 
+	if (flags.OpenForAppending()) {
+		throw InternalException("Write in append mode not supported");
+	}
+
 	if (!(flags.OpenForWriting() || flags.OpenForAppending())) {
 		throw InternalException("Write called on file not opened in write or append mode");
 	}
 
-	if (flags.OpenForAppending()) {
-		if (location != afh.length) {
-			throw InternalException("Appen location bad!");
-		}
-		// TODO: currently one-shot, look ma no chunks or threads; one day do this.
-		auto append_client = afh.blob_client.AsAppendBlobClient();
-		auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
-		auto res = append_client.AppendBlock(body_stream);
-		afh.last_modified = ToTimestamp(res.Value.LastModified);
-		afh.file_offset += nr_bytes;
-	} else if (flags.OpenForWriting()) {
-		if (location != 0) {
-			throw InternalException("Write supported only at location=0");
-		}
-		auto res = afh.blob_client.AsBlockBlobClient().UploadFrom(static_cast<uint8_t *>(buffer), nr_bytes);
-		afh.last_modified = ToTimestamp(res.Value.LastModified);
-		afh.file_offset += nr_bytes;
-		afh.length += nr_bytes;
+	if (location != afh.file_offset || location != afh.length) {
+		throw InternalException("Write supported only sequentially or at location=0");
 	}
 
-	DUCKDB_LOG_FILE_SYSTEM_WRITE(handle, nr_bytes, afh.file_offset - nr_bytes);
+	DUCKDB_LOG_FILE_SYSTEM_WRITE(handle, nr_bytes, afh.file_offset);
+
+	auto append_client = afh.blob_client.AsAppendBlobClient();
+	if (afh.file_offset == 0) {
+		append_client.Create();
+	}
+	auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
+	auto res = append_client.AppendBlock(body_stream);
+	afh.last_modified = ToTimestamp(res.Value.LastModified);
+	D_ASSERT(res.Value.AppendOffset == afh.file_offset);
+	afh.file_offset += nr_bytes;
+	afh.length += nr_bytes;
 }
 
 } // namespace duckdb

@@ -84,6 +84,7 @@ unique_ptr<FileHandle> AzureStorageFileSystem::OpenFileExtended(const OpenFileIn
 	//  }
 
 	auto handle = CreateHandle(info, flags, opener);
+	handle->TryAddLogger(*opener);
 	return std::move(handle);
 }
 
