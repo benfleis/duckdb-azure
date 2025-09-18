@@ -77,10 +77,13 @@ unique_ptr<AzureFileHandle> AzureBlobStorageFileSystem::CreateHandle(const OpenF
 		throw InternalException("Cannot do Azure storage CreateHandle without FileOpener");
 	}
 
-	D_ASSERT(flags.Compression() == FileCompressionType::UNCOMPRESSED);
-	if (flags.OpenForAppending()) {
-		throw InternalException("Write in append mode not supported");
+	if (flags.OpenForReading() && flags.OpenForWriting()) {
+		throw NotImplementedException("Opening file in both Read and Write mode unsupported");
+	} else if (flags.OpenForAppending()) {
+		throw NotImplementedException("Write in append mode unsupported");
 	}
+	// XXX: why's this here, especially as ASSERT instead of throwing if it's unsupported?
+	D_ASSERT(flags.Compression() == FileCompressionType::UNCOMPRESSED);
 
 	auto parsed_url = ParseUrl(info.path);
 	auto storage_context = GetOrCreateStorageContext(opener, info.path, parsed_url);
@@ -170,15 +173,14 @@ vector<OpenFileInfo> AzureBlobStorageFileSystem::Glob(const string &path, FileOp
 void AzureBlobStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
 
-	// TODO: proper distinction between R, W, A (if A matters)
 	afh.file_offset = 0;
-	if (!afh.RemoteLoadComplete()) {
+	if (!afh.RemoteLoadCompleted()) {
 		if (afh.flags.OpenForWriting()) {
-			// NOTE: since append is unsupported, no point in loading for write, whether CREATE or not.
+			// NOTE: since append is unsupported, little point in extra RTT for write here, whether CREATE or not.
 			// Can check for IsSealed during first write instead of extra call here.
 			// TODO: experiment -- instead of opening for a 0-byte write, defer to first actual write and leave empty
 			afh.length = 0;
-			afh.last_modified = timestamp_t(0);
+			afh.last_modified = timestamp_t::epoch();
 		} else if (afh.flags.OpenForReading()) {
 			auto res = afh.blob_client.GetProperties();
 			afh.length = res.Value.BlobSize;

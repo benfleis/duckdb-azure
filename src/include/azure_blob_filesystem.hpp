@@ -32,12 +32,6 @@ public:
 
 public:
 	Azure::Storage::Blobs::BlobClient blob_client;
-
-	// protected: ?
-	// TODO: make this not just adhoc :)
-	bool RemoteLoadComplete() {
-		return last_modified != timestamp_t(0);
-	}
 };
 
 class AzureBlobStorageFileSystem : public AzureStorageFileSystem {

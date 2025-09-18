@@ -3,12 +3,13 @@
 #include "azure_parsed_url.hpp"
 #include "duckdb/common/assert.hpp"
 #include "duckdb/common/file_opener.hpp"
-#include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/file_system.hpp"
+#include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/main/client_context_state.hpp"
+
 #include <azure/core/datetime.hpp>
-#include <ctime>
 #include <cstdint>
+#include <ctime>
 
 namespace duckdb {
 
@@ -50,6 +51,12 @@ class AzureFileHandle : public FileHandle {
 public:
 	virtual bool PostConstruct();
 	void Close() override {
+	}
+
+	// protected: ?
+	// TODO: make this not just adhoc :)
+	bool RemoteLoadCompleted() {
+		return last_modified != timestamp_t::epoch();
 	}
 
 protected:
