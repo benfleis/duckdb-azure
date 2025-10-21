@@ -10,6 +10,7 @@
 #include "duckdb/function/scalar/string_common.hpp"
 #include "duckdb/logging/file_system_logger.hpp"
 #include "duckdb/main/client_data.hpp"
+#include "include/azure_blob_filesystem.hpp"
 
 #include <azure/core/io/body_stream.hpp>
 #include <azure/storage/blobs.hpp>
@@ -173,19 +174,19 @@ vector<OpenFileInfo> AzureBlobStorageFileSystem::Glob(const string &path, FileOp
 void AzureBlobStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
 
+	if (afh.RemoteLoadCompleted()) {
+		return;
+	}
 	afh.file_offset = 0;
-	if (!afh.RemoteLoadCompleted()) {
-		if (afh.flags.OpenForWriting()) {
-			// NOTE: since append is unsupported, little point in extra RTT for write here, whether CREATE or not.
-			// Can check for IsSealed during first write instead of extra call here.
-			// TODO: experiment -- instead of opening for a 0-byte write, defer to first actual write and leave empty
-			afh.length = 0;
-			afh.last_modified = timestamp_t::epoch();
-		} else if (afh.flags.OpenForReading()) {
-			auto res = afh.blob_client.GetProperties();
-			afh.length = res.Value.BlobSize;
-			afh.last_modified = ToTimestamp(res.Value.LastModified);
-		}
+	if (afh.flags.OpenForReading() || afh.flags.ReturnNullIfExists() || afh.flags.ReturnNullIfNotExists()) {
+		auto res = afh.blob_client.GetProperties();
+		afh.length = res.Value.BlobSize;
+		afh.last_modified = ToTimestamp(res.Value.LastModified);
+	} else {
+		// NOTE: OpenForAppending not allowed, and plain OpenForWriting (no Exists checks)
+		// need not load yet. These checks may be redundant with caller (e.g. LoadFileInfo)
+		afh.length = 0;
+		afh.last_modified = timestamp_t::epoch();
 	}
 }
 
@@ -241,14 +242,9 @@ int64_t AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int6
 
 void AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
 	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
-	auto &flags = afh.flags;
 
-	if (flags.OpenForAppending()) {
-		throw InternalException("Write in append mode not supported");
-	}
-
-	if (!(flags.OpenForWriting() || flags.OpenForAppending())) {
-		throw InternalException("Write called on file not opened in write or append mode");
+	if (!(afh.flags.OpenForWriting() || afh.flags.OpenForAppending())) {
+		throw InternalException("Write called on file opened in read mode");
 	}
 
 	if (location != afh.file_offset || location != afh.length) {

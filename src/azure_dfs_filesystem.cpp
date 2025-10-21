@@ -105,6 +105,10 @@ AzureDfsStorageFileHandle::AzureDfsStorageFileHandle(AzureDfsStorageFileSystem &
     : AzureFileHandle(fs, info, flags, read_options), file_client(std::move(client)) {
 }
 
+void AzureDfsStorageFileHandle::Close() {
+	file_client.Flush(file_offset);
+}
+
 //////// AzureDfsStorageFileSystem ////////
 unique_ptr<AzureFileHandle> AzureDfsStorageFileSystem::CreateHandle(const OpenFileInfo &info, FileOpenFlags flags,
                                                                     optional_ptr<FileOpener> opener) {
@@ -113,9 +117,9 @@ unique_ptr<AzureFileHandle> AzureDfsStorageFileSystem::CreateHandle(const OpenFi
 	}
 
 	if (flags.OpenForReading() && flags.OpenForWriting()) {
-		throw NotImplementedException("Cannot open an Azure file for both reading and writing");
+		throw NotImplementedException("Opening file in both Read and Write mode unsupported");
 	} else if (flags.OpenForAppending()) {
-		throw NotImplementedException("Cannot open an Azure file for appending");
+		throw NotImplementedException("Write in append mode unsupported");
 	}
 	D_ASSERT(flags.Compression() == FileCompressionType::UNCOMPRESSED);
 
@@ -182,17 +186,18 @@ vector<OpenFileInfo> AzureDfsStorageFileSystem::Glob(const string &path, FileOpe
 void AzureDfsStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	auto &afh = handle.Cast<AzureDfsStorageFileHandle>();
 
-	if (afh.last_modified == timestamp_t(0)) {
-		if (afh.flags.OpenForReading() || !afh.flags.CreateFileIfNotExists()) {
+	afh.file_offset = 0;
+	if (!afh.RemoteLoadCompleted()) {
+		if (afh.flags.OpenForWriting()) {
+			// NOTE: since append is unsupported, little point in extra RTT for write here, whether CREATE or not.
+			// Can check for IsSealed during first write instead of extra call here.
+			// TODO: experiment -- instead of opening for a 0-byte write, defer to first actual write and leave empty
+			afh.length = 0;
+			afh.last_modified = timestamp_t::epoch();
+		} else if (afh.flags.OpenForReading()) {
 			auto res = afh.file_client.GetProperties();
 			afh.length = res.Value.FileSize;
 			afh.last_modified = ToTimestamp(res.Value.LastModified);
-		} else /* .CreateIfNotExists() && (.OpenForWriting() || .OpenForAppending()) */ {
-			// TODO: check opts
-			auto res = afh.file_client.CreateIfNotExists();
-			afh.last_modified = ToTimestamp(res.Value.LastModified);
-			// TODO: check whether this Value can be absent
-			afh.length = res.Value.Created ? 0 : res.Value.FileSize.Value();
 		}
 	}
 }
@@ -235,18 +240,24 @@ int64_t AzureDfsStorageFileSystem::Write(FileHandle &handle, void *buffer, int64
 
 void AzureDfsStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
 	auto &afh = handle.Cast<AzureDfsStorageFileHandle>();
-	if (!afh.flags.OpenForWriting()) {
-		throw InternalException("Write called on file not opened in write mode");
+
+	if (!(afh.flags.OpenForWriting() || afh.flags.OpenForAppending())) {
+		throw InternalException("Write called on file opened in read mode");
 	}
 
-	// TODO: currently one-shot, look ma no chunks or threads; one day do this.
-	auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
-	(void)afh.file_client.Append(body_stream, afh.file_offset);
-	auto res = afh.file_client.Flush(afh.file_offset + nr_bytes);
-	afh.last_modified = ToTimestamp(res.Value.LastModified);
-	afh.file_offset += nr_bytes;
+	if (location != afh.file_offset || location != afh.length) {
+		throw InternalException("Write supported only sequentially or at location=0");
+	}
 
 	DUCKDB_LOG_FILE_SYSTEM_WRITE(handle, nr_bytes, afh.file_offset - nr_bytes);
+
+	auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
+	auto append_res = afh.file_client.Append(body_stream, afh.file_offset);
+	auto flush_res = afh.file_client.Flush(afh.file_offset + nr_bytes);
+	afh.last_modified = ToTimestamp(flush_res.Value.LastModified);
+	D_ASSERT(flush_res.Value.FileSize == afh.file_offset + nr_bytes);
+	afh.file_offset += nr_bytes;
+	afh.length += nr_bytes;
 }
 
 } // namespace duckdb

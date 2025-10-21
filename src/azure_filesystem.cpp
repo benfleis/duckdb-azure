@@ -61,7 +61,7 @@ bool AzureStorageFileSystem::LoadFileInfo(AzureFileHandle &handle) {
 				return false;
 			}
 			throw IOException(
-			    "AzureBlobStorageFileSystem open file '%s' failed with code'%s', Reason Phrase: '%s', Message: '%s'",
+			    "AzureBlobStorageFileSystem open file '%s' failed with code '%s', Reason Phrase: '%s', Message: '%s'",
 			    handle.path, e.ErrorCode, e.ReasonPhrase, e.Message);
 		} catch (const std::exception &e) {
 			throw IOException(
@@ -84,7 +84,9 @@ unique_ptr<FileHandle> AzureStorageFileSystem::OpenFileExtended(const OpenFileIn
 	//  }
 
 	auto handle = CreateHandle(info, flags, opener);
-	handle->TryAddLogger(*opener);
+	if (handle && opener) {
+		handle->TryAddLogger(*opener);
+	}
 	return std::move(handle);
 }
 
