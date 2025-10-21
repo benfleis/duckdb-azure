@@ -1,0 +1,5 @@
+{
+  "description": "Run with Azure ADLSv2 (via DFS) env DATA_DIR=abfss://files1/test_data",
+  "on_init": "LOAD '{BUILD_DIR}/extension/azure/azure.duckdb_extension'; CREATE OR REPLACE SECRET ( TYPE azure, PROVIDER credential_chain, CHAIN 'env', ACCOUNT_NAME 'duckfiles' );",
+  "data_dir": "abfss://files1/test_data"
+}

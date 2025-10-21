@@ -1,0 +1,10 @@
+{
+  "description": "Run with Azure ADLSv2 (via DFS) temp_dir_base=az://files1/test_temp",
+  "statically_loaded_extensions": [
+    "core_functions",
+    "parquet",
+    "azure"
+  ],
+  "on_init": "SET autoload_known_extensions=1; LOAD azure; CREATE OR REPLACE SECRET ( TYPE azure, PROVIDER credential_chain, CHAIN 'env', ACCOUNT_NAME 'duckfiles' );",
+  "temp_dir_base": "az://files1/test_temp"
+}
