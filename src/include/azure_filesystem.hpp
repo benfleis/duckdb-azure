@@ -103,7 +103,6 @@ public:
 	timestamp_t GetLastModifiedTime(FileHandle &handle) override;
 	void Seek(FileHandle &handle, idx_t location) override;
 	idx_t SeekPosition(FileHandle &handle) override;
-	void FileSync(FileHandle &handle) override;
 
 	bool LoadFileInfo(AzureFileHandle &handle);
 

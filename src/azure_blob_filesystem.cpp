@@ -83,7 +83,6 @@ unique_ptr<AzureFileHandle> AzureBlobStorageFileSystem::CreateHandle(const OpenF
 	} else if (flags.OpenForAppending()) {
 		throw NotImplementedException("Write in append mode unsupported");
 	}
-	// XXX: why's this here, especially as ASSERT instead of throwing if it's unsupported?
 	D_ASSERT(flags.Compression() == FileCompressionType::UNCOMPRESSED);
 
 	auto parsed_url = ParseUrl(info.path);
@@ -171,6 +170,35 @@ vector<OpenFileInfo> AzureBlobStorageFileSystem::Glob(const string &path, FileOp
 	return result;
 }
 
+bool AzureBlobStorageFileSystem::ListFilesExtended(const string &path_in,
+                                                   const std::function<void(OpenFileInfo &info)> &callback,
+                                                   optional_ptr<FileOpener> opener) {
+	// NOTE: in a perfect world this gets normalized since "foo/../bar" -> "bar" but in Blob it's just a string prefix
+	auto path = path_in[path_in.length() - 1] == '/' ? path_in : (path_in + '/');
+	auto parsed_url = ParseUrl(path);
+	auto storage_context = GetOrCreateStorageContext(opener, path, parsed_url);
+	auto container = storage_context->As<AzureBlobContextState>().GetBlobContainerClient(parsed_url.container);
+
+	bool rv = false;
+	for (auto page = container.ListBlobs({.Prefix = parsed_url.path}); page.HasPage(); page.MoveToNextPage()) {
+		for (auto &blob : page.Blobs) {
+			rv = true;
+			OpenFileInfo info(path + blob.Name);
+			info.extended_info = make_shared_ptr<ExtendedOpenFileInfo>();
+			auto &options = info.extended_info->options;
+			options.emplace("file_size", Value::BIGINT(blob.BlobSize));
+			options.emplace("last_modified",
+			                Value::TIMESTAMP(AzureStorageFileSystem::ToTimestamp(blob.Details.LastModified)));
+			// NOTE: there's a LOT of metadata available, and tags, etc. -- see
+			// https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/storage/azure-storage-blobs/inc/azure/storage/blobs/rest_client.hpp#L1134
+			// (struct BlobItemDetails) and
+			// https://learn.microsoft.com/en-us/rest/api/storageservices/list-blobs
+			callback(info);
+		}
+	}
+	return rv;
+}
+
 void AzureBlobStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
 
@@ -253,6 +281,8 @@ void AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t
 
 	DUCKDB_LOG_FILE_SYSTEM_WRITE(handle, nr_bytes, afh.file_offset);
 
+	// NOTE: if changing to BlockBlobClient (probably will do), FileSync below must also become
+	// real. Only with AppendBlobClient is each append committed (sync'd).
 	auto append_client = afh.blob_client.AsAppendBlobClient();
 	if (afh.file_offset == 0) {
 		append_client.Create();
@@ -263,6 +293,10 @@ void AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t
 	D_ASSERT(res.Value.AppendOffset == afh.file_offset);
 	afh.file_offset += nr_bytes;
 	afh.length += nr_bytes;
+}
+
+void AzureBlobStorageFileSystem::FileSync(FileHandle &handle) {
+	return;
 }
 
 } // namespace duckdb

@@ -37,6 +37,12 @@ public:
 class AzureBlobStorageFileSystem : public AzureStorageFileSystem {
 public:
 	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;
+	bool ListFilesExtended(const string &directory, const std::function<void(OpenFileInfo &info)> &callback,
+	                       optional_ptr<FileOpener> opener) override;
+
+	bool SupportsListFilesExtended() const override {
+		return true;
+	}
 
 	// FS methods
 	bool FileExists(const string &filename, optional_ptr<FileOpener> opener = nullptr) override;
@@ -55,6 +61,7 @@ public:
 	void LoadRemoteFileInfo(AzureFileHandle &handle) override;
 	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
+	void FileSync(FileHandle &handle) override;
 
 public:
 	static const string SCHEME;

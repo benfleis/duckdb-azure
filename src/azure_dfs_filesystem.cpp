@@ -260,4 +260,12 @@ void AzureDfsStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t 
 	afh.length += nr_bytes;
 }
 
+void AzureDfsStorageFileSystem::FileSync(FileHandle &handle) {
+	// TODO: (@benfleis): uncomment these, and remove from Write to make it async
+	// auto flush_res = afh.file_client.Flush(afh.file_offset);
+	// afh.last_modified = ToTimestamp(flush_res.Value.LastModified);
+	// D_ASSERT(flush_res.Value.FileSize == afh.file_offset);
+	return;
+}
+
 } // namespace duckdb
