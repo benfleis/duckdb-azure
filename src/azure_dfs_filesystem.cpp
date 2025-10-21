@@ -41,7 +41,7 @@ static void Walk(const Azure::Storage::Files::DataLake::DataLakeFileSystemClient
 	const auto double_star = path_pattern.rfind("**", end_match);
 	if (double_star != std::string::npos) {
 		if (path_pattern.length() > end_match) {
-			throw NotImplementedException("abfss do not manage recursive lookup patterns, %s is therefor illegal, only "
+			throw NotImplementedException("abfss does manage recursive lookup patterns, %s is therefore illegal, only "
 			                              "pattern ending by ** are allowed.",
 			                              path_pattern);
 		}
@@ -181,6 +181,41 @@ vector<OpenFileInfo> AzureDfsStorageFileSystem::Glob(const string &path, FileOpe
 	}
 
 	return result;
+}
+
+bool AzureDfsStorageFileSystem::ListFilesExtended(const string &path,
+                                                  const std::function<void(OpenFileInfo &info)> &callback,
+                                                  optional_ptr<FileOpener> opener) {
+	if (!opener) {
+		throw InternalException("Cannot do Azure storage ListFiles without FileOpener");
+	}
+	if (path.find('*') != string::npos) {
+		throw InvalidInputException("ListFiles does not support globs");
+	}
+	auto parsed_url = ParseUrl(path);
+	auto dir_client = GetOrCreateStorageContext(opener, path, parsed_url)
+	                      ->As<AzureDfsContextState>()
+	                      .GetDfsFileSystemClient(parsed_url.container)
+	                      .GetDirectoryClient(parsed_url.path);
+
+	bool rv = false;
+	// TODO: confirm ContinuationToken not needed with this API
+	for (auto page = dir_client.ListPaths(false); page.HasPage(); page.MoveToNextPage()) {
+		for (auto &child : page.Paths) {
+			// XXX: is this recursive? ignore entries with '/'?
+			// consider also: chopping paths with '/' to fake it; performance could suck in extreme cases but semantics
+			// work, buyer beware (thus: document it!)
+			rv = true;
+			OpenFileInfo info(path + child.Name);
+			info.extended_info = make_shared_ptr<ExtendedOpenFileInfo>();
+			auto &options = info.extended_info->options;
+			options.emplace("file_size", Value::BIGINT(child.FileSize));
+			options.emplace("last_modified", Value::TIMESTAMP(AzureStorageFileSystem::ToTimestamp(child.LastModified)));
+			// NOTE: there's a LOT of metadata available, and tags, etc.
+			callback(info);
+		}
+	}
+	return rv;
 }
 
 void AzureDfsStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {

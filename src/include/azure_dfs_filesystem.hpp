@@ -42,6 +42,8 @@ public:
 class AzureDfsStorageFileSystem : public AzureStorageFileSystem {
 public:
 	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;
+	bool ListFilesExtended(const string &path, const std::function<void(OpenFileInfo &info)> &callback,
+	                       optional_ptr<FileOpener> opener) override;
 
 	bool CanHandleFile(const string &fpath) override;
 	string GetName() const override {

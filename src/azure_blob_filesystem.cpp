@@ -173,6 +173,9 @@ vector<OpenFileInfo> AzureBlobStorageFileSystem::Glob(const string &path, FileOp
 bool AzureBlobStorageFileSystem::ListFilesExtended(const string &path_in,
                                                    const std::function<void(OpenFileInfo &info)> &callback,
                                                    optional_ptr<FileOpener> opener) {
+	if (path_in.find('*') != string::npos) {
+		throw InvalidInputException("ListFiles does not support globs");
+	}
 	// NOTE: in a perfect world this gets normalized since "foo/../bar" -> "bar" but in Blob it's just a string prefix
 	auto path = path_in[path_in.length() - 1] == '/' ? path_in : (path_in + '/');
 	auto parsed_url = ParseUrl(path);
@@ -180,8 +183,12 @@ bool AzureBlobStorageFileSystem::ListFilesExtended(const string &path_in,
 	auto container = storage_context->As<AzureBlobContextState>().GetBlobContainerClient(parsed_url.container);
 
 	bool rv = false;
+	// TODO: confirm ContinuationToken not needed with this API
 	for (auto page = container.ListBlobs({.Prefix = parsed_url.path}); page.HasPage(); page.MoveToNextPage()) {
 		for (auto &blob : page.Blobs) {
+			// XXX: is this recursive? ignore entries with '/'?
+			// consider also: chopping paths with '/' to fake it; performance could suck in extreme cases but semantics
+			// work, buyer beware (thus: document it!)
 			rv = true;
 			OpenFileInfo info(path + blob.Name);
 			info.extended_info = make_shared_ptr<ExtendedOpenFileInfo>();
