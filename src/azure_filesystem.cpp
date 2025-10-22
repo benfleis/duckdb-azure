@@ -77,9 +77,12 @@ unique_ptr<FileHandle> AzureStorageFileSystem::OpenFileExtended(const OpenFileIn
                                                                 optional_ptr<FileOpener> opener) {
 	D_ASSERT(flags.Compression() == FileCompressionType::UNCOMPRESSED);
 
-	if (flags.OpenForWriting()) {
+	if (flags.OpenForWriting() || flags.OpenForAppending()) {
 		throw NotImplementedException("Writing to Azure containers is currently not supported");
 	}
+
+	// normalize flags
+	flags |= FileOpenFlags::FILE_FLAGS_READ;
 
 	auto handle = CreateHandle(info, flags, opener);
 	return std::move(handle);
