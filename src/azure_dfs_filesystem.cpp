@@ -144,7 +144,11 @@ vector<OpenFileInfo> AzureDfsStorageFileSystem::Glob(const string &path, FileOpe
 	// If path does not contains any wildcard, we assume that an absolute path therefor nothing to do
 	auto first_wildcard_pos = azure_url.path.find_first_of("*[\\");
 	if (first_wildcard_pos == string::npos) {
-		return {path};
+		vector<OpenFileInfo> rv;
+		if (FileExists(path, opener)) {
+			rv.emplace_back(path);
+		}
+		return rv;
 	}
 
 	// The path contains wildcard try to list file with the minimum calls
