@@ -1,0 +1,34 @@
+{
+  "description": "Run DuckDB Tests with Azure Blob Storage as Data source and Temp storage",
+  "data_dir": "az://files1/test_data",
+  "on_init": "LOAD '{BUILD_DIR}/extension/azure/azure.duckdb_extension'; CREATE OR REPLACE SECRET ( TYPE azure, PROVIDER credential_chain, CHAIN 'env;cli', ACCOUNT_NAME 'duckfiles' );",
+  "statically_loaded_extensions": [
+    "core_functions",
+    "parquet",
+    "azure"
+  ],
+  "skip_tests": [
+    {
+      "reason": "incompatible with azure create secret",
+      "paths": [
+        "test/sql/secrets/create_secret_persistence_no_client_context.test"
+      ]
+    },
+    {
+      "reason": "extension autoloads needed for azure big tests",
+      "paths": [
+        "test/sql/catalog/test_extension_suggestion.test"
+      ]
+    },
+    {
+      "reason": "azure glob does not support ?",
+      "paths": [
+        "test/sql/copy/csv/read_csv_variable.test",
+        "test/sql/copy/csv/glob/copy_csv_glob.test",
+        "test/sql/copy/csv/glob/read_csv_glob.test",
+        "test/sql/copy/parquet/parquet_glob.test",
+        "test/sql/copy/parquet/parallel_parquet_glob.test"
+      ]
+    }
+  ]
+}
