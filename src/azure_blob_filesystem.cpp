@@ -111,9 +111,14 @@ vector<OpenFileInfo> AzureBlobStorageFileSystem::Glob(const string &path, FileOp
 	auto storage_context = GetOrCreateStorageContext(opener, path, azure_url);
 
 	// Azure matches on prefix, not glob pattern, so we take a substring until the first wildcard
+	// FIXME: missing '?' support
 	auto first_wildcard_pos = azure_url.path.find_first_of("*[\\");
 	if (first_wildcard_pos == string::npos) {
-		return {path};
+		vector<OpenFileInfo> rv;
+		if (FileExists(path, opener)) {
+			rv.emplace_back(path);
+		}
+		return rv;
 	}
 
 	string shared_path = azure_url.path.substr(0, first_wildcard_pos);
@@ -213,29 +218,18 @@ void AzureBlobStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 		return;
 	}
 	afh.file_offset = 0;
-	if (afh.flags.OpenForReading() || afh.flags.ReturnNullIfExists() || afh.flags.ReturnNullIfNotExists()) {
-		auto res = afh.blob_client.GetProperties();
-		afh.length = res.Value.BlobSize;
-		afh.last_modified = ToTimestamp(res.Value.LastModified);
-	} else {
-		// NOTE: OpenForAppending not allowed, and plain OpenForWriting (no Exists checks)
-		// need not load yet. These checks may be redundant with caller (e.g. LoadFileInfo)
-		afh.length = 0;
-		afh.last_modified = timestamp_t::epoch();
-	}
+	auto res = afh.blob_client.GetProperties();
+	afh.length = res.Value.BlobSize;
+	afh.last_modified = ToTimestamp(res.Value.LastModified);
 }
 
 bool AzureBlobStorageFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
-	try {
-		auto handle = OpenFile(filename, FileFlags::FILE_FLAGS_READ, opener);
+	auto handle = OpenFile(filename, FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS, opener);
+	if (handle != nullptr) {
 		auto &sfh = handle->Cast<AzureBlobStorageFileHandle>();
-		if (sfh.length == 0) {
-			return false;
-		}
-		return true;
-	} catch (...) {
-		return false;
-	};
+		return sfh.length >= 0; // aka return true; -- avoid optimizers and shenanigans -- deref handle to be sure
+	}
+	return false;
 }
 
 void AzureBlobStorageFileSystem::ReadRange(AzureFileHandle &handle, idx_t file_offset, char *buffer_out,

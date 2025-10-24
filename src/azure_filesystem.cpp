@@ -53,11 +53,18 @@ bool AzureFileHandle::PostConstruct() {
 }
 
 bool AzureStorageFileSystem::LoadFileInfo(AzureFileHandle &handle) {
-	if (handle.flags.OpenForReading()) {
+	const auto &flags = handle.flags;
+	// Reads & Appends need size/offset, and any existence check needs a remote
+	// Pure (unflagged) writes do not, since they create/reset metadata, so we save the RTT
+	if (flags.OpenForReading() || flags.OpenForAppending() || flags.ReturnNullIfNotExists() ||
+	    flags.ReturnNullIfExists()) {
 		try {
 			LoadRemoteFileInfo(handle);
 		} catch (const Azure::Storage::StorageException &e) {
 			auto status_code = int(e.StatusCode);
+			if ((status_code == 200 || status_code == 204 || status_code == 206) && flags.ReturnNullIfExists()) {
+				return false;
+			}
 			if (status_code == 404 && handle.flags.ReturnNullIfNotExists()) {
 				return false;
 			}
@@ -77,12 +84,18 @@ bool AzureStorageFileSystem::LoadFileInfo(AzureFileHandle &handle) {
 unique_ptr<FileHandle> AzureStorageFileSystem::OpenFileExtended(const OpenFileInfo &info, FileOpenFlags flags,
                                                                 optional_ptr<FileOpener> opener) {
 	if (flags.Compression() != FileCompressionType::UNCOMPRESSED) {
-		throw NotImplementedException("Compression in Azure containers is currently not supported");
+		throw NotImplementedException("Compression is not supported in Azure Storage");
 	}
 
-	//  if (flags.OpenForWriting()) {
-	//    throw NotImplementedException("Writing to Azure containers is currently not supported");
-	//  }
+	if (flags.OpenForAppending()) {
+		throw NotImplementedException("Append mode is not supported in Azure Storage");
+	}
+
+	if (flags.OpenForReading() && flags.OpenForWriting()) {
+		throw NotImplementedException("Read-Write mode is not supported in Azure Storage");
+	}
+
+	// TODO: ExclusiveCreate check, perhaps others, perhaps higher up the FS stack
 
 	auto handle = CreateHandle(info, flags, opener);
 	if (handle && opener) {
