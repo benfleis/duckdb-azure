@@ -15,19 +15,21 @@
       ]
     },
     {
-      "reason": "extension autoloads needed for azure big tests",
+      "reason": "incompatible with extension auto/load reqs",
       "paths": [
-        "test/sql/catalog/test_extension_suggestion.test"
+        "test/sql/catalog/test_extension_suggestion.test",
+        "test/sql/copy/csv/zstd_crash.test"
       ]
     },
     {
-      "reason": "azure glob does not support ?",
+      "reason": "azure glob support inconsistencies: no ?",
       "paths": [
-        "test/sql/copy/csv/read_csv_variable.test",
+        "test/sql/copy/csv/csv_glob_fallback.test",
         "test/sql/copy/csv/glob/copy_csv_glob.test",
         "test/sql/copy/csv/glob/read_csv_glob.test",
-        "test/sql/copy/parquet/parquet_glob.test",
-        "test/sql/copy/parquet/parallel_parquet_glob.test"
+        "test/sql/copy/csv/read_csv_variable.test",
+        "test/sql/copy/parquet/parallel_parquet_glob.test",
+        "test/sql/copy/parquet/parquet_glob.test"
       ]
     }
   ]
