@@ -27,6 +27,7 @@
         "test/sql/copy/csv/csv_glob_fallback.test",
         "test/sql/copy/csv/glob/copy_csv_glob.test",
         "test/sql/copy/csv/glob/read_csv_glob.test",
+        "test/sql/copy/csv/glob/read_csv_glob_crawl_partitioned.test_slow",
         "test/sql/copy/csv/read_csv_variable.test",
         "test/sql/copy/parquet/parallel_parquet_glob.test",
         "test/sql/copy/parquet/parquet_glob.test"
