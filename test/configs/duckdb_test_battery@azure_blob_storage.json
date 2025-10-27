@@ -18,7 +18,9 @@
       "reason": "incompatible with extension auto/load reqs",
       "paths": [
         "test/sql/catalog/test_extension_suggestion.test",
-        "test/sql/copy/csv/zstd_crash.test"
+        "test/sql/copy/csv/zstd_crash.test",
+        "test/sql/secrets/create_secret_hffs_autoload.test",
+        "test/sql/secrets/secret_autoloading_errors.test"
       ]
     },
     {
