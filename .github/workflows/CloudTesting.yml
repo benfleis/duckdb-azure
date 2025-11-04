@@ -56,6 +56,7 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.ONEPASSWORD_TOKEN }}
           CLIENT_SECRET: op://testing-rw/azure/client_secret
 
+      - name: Setup credentials file
         # TODO: WIP
         # install into az cli and env file
         #sed 's/$/export /' ${{AZ_TESTING_ENV_FILE}}
