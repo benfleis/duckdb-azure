@@ -42,12 +42,6 @@ jobs:
         with:
           vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b
 
-      - name: Build extension
-        env:
-          GEN: ninja
-        run: |
-          make release
-
       - name: Setup credentials
         uses: 1password/load-secrets-action@v2
         with:
@@ -65,6 +59,12 @@ jobs:
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
+
+      - name: Build extension
+        env:
+          GEN: ninja
+        run: |
+          make release
 
       - name: Test with Service Principal (SPN) in env vars
         env:
