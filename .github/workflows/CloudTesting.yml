@@ -47,8 +47,8 @@ jobs:
         with:
           export-env: true
         env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.ONEPASSWORD_TOKEN }}
-          CLIENT_SECRET: op://testing-rw/azure/client_secret
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          AZURE_CLIENT_SECRET: op://testing-rw/azure/client_secret
 
       - name: Setup credentials file
         # TODO: WIP
