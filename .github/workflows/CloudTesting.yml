@@ -32,6 +32,9 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          AZURE_TENANT_ID: op://testing-rw/azure/tenant_id
+          AZURE_CLIENT_ID: op://testing-rw/azure/client_id
+          AZURE_STORAGE_ACCOUNT: op://testing-rw/azure/account_name
           AZURE_CLIENT_SECRET: op://testing-rw/azure/client_secret
 
       - name: Setup tmate session
@@ -46,6 +49,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@v1.2.11 # Note: pinned due to GLIBC incompatibility in later releases
         with:
           key: ${{ github.job }}-${{ matrix.duckdb_arch }}
+          verbose: 1
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11.1
@@ -71,9 +75,11 @@ jobs:
         env:
           AZURE_STORAGE_ACCOUNT: ${{secrets.AZURE_STORAGE_ACCOUNT}}
           DUCKDB_AZ_CLI_LOGGED_IN: 1
+          AZURE_CLIENT_SECRET: "" # disable env based
+
         run: |
           az login --service-principal -u ${{secrets.AZURE_CLIENT_ID}} -p ${{secrets.AZURE_CLIENT_SECRET}} --tenant ${{secrets.AZURE_TENANT_ID}}
-          python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest "*test/sql/cloud/*"
+          AZURE_LOG_LEVEL=verbose python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest "*test/sql/cloud/*"
 
       - name: Test with access token
         env:
@@ -87,7 +93,7 @@ jobs:
         if: always()
         run: |
           az logout
-          rm -f "$AZ_TESTING_ENV_FILE"
+          #rm -f "$AZ_TESTING_ENV_FILE"
 
       - name: Tests that focus on public non-authenticated requests
         env:
