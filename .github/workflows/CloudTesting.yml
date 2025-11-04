@@ -6,10 +6,6 @@ concurrency:
 defaults:
   run:
     shell: bash
-  env:
-    AZURE_TENANT_ID: bc05eff7-07eb-477c-9d67-21b8ab7fa6d0
-    AZURE_CLIENT_ID: bf5c1e1b-21fa-43bf-86a8-3a64a09f62ca
-    AZURE_STORAGE_ACCOUNT: duckdblabstestdata
 
 jobs:
   azure-tests-linux:
