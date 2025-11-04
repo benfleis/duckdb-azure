@@ -16,6 +16,7 @@ jobs:
       VCPKG_TOOLCHAIN_PATH: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
       GEN: ninja
       DUCKDB_PLATFORM: linux_amd64
+      AZ_TESTING_ENV_FILE: ~/.az-testing-rw.env
 
     steps:
       - name: Install required ubuntu packages
@@ -46,6 +47,23 @@ jobs:
           GEN: ninja
         run: |
           make release
+
+      - name: Setup credentials
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.ONEPASSWORD_TOKEN }}
+          CLIENT_SECRET: op://testing-rw/azure/client_secret
+
+        # TODO: WIP
+        # install into az cli and env file
+        #sed 's/$/export /' ${{AZ_TESTING_ENV_FILE}}
+        run: |
+          op read op://testing/azure/_env | op inject | install -m 400 ${{AZ_TESTING_ENV_FILE}}
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Test with Service Principal (SPN) in env vars
         env:
