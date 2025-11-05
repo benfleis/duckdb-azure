@@ -14,7 +14,7 @@ statement ok
 set allow_persistent_secrets=false
 
 statement error
-SELECT count(*) FROM 'azure://duckdblabs-data/common/duckdb_data/l.parquet';
+SELECT count(*) FROM 'azure://duckdblabs-data/common/azure_data/l.parquet';
 ----
 Invalid Input Error: No valid Azure credentials found!
 
@@ -27,11 +27,11 @@ CREATE SECRET az1 (
 )
 
 query I
-SELECT count(*) FROM 'azure://duckdblabs-data/common/duckdb_data/l.parquet';
+SELECT count(*) FROM 'azure://duckdblabs-data/common/azure_data/l.parquet';
 ----
 60175
 
 query I
-FROM glob('az://duckdblabs-data/common/duckdb_data/*.parquet');
+FROM glob('az://duckdblabs-data/common/azure_data/*.parquet');
 ----
-az://duckdblabs-data/common/duckdb_data/l.parquet
+az://duckdblabs-data/common/azure_data/l.parquet

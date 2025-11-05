@@ -28,68 +28,68 @@ CREATE SECRET spn (
 
 # Check that with Azure ADLS GEN2 directories are not show in globs
 query I
-SELECT file FROM glob('abfss://duckdblabs-data/common/duckdb_data/**') ORDER BY file;
+SELECT file FROM glob('abfss://duckdblabs-data/common/azure_data/**') ORDER BY file;
 ----
-abfss://duckdblabs-data/common/duckdb_data/README.md
-abfss://duckdblabs-data/common/duckdb_data/l.csv
-abfss://duckdblabs-data/common/duckdb_data/l.parquet
-abfss://duckdblabs-data/common/duckdb_data/lineitem.csv
-abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=1997/l_shipmode=AIR/data_0.csv
-abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=1997/l_shipmode=SHIP/data_0.csv
-abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv
-abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=1998/l_shipmode=AIR/data_0.csv
-abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=1998/l_shipmode=SHIP/data_0.csv
-abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=1998/l_shipmode=TRUCK/data_0.csv
+abfss://duckdblabs-data/common/azure_data/README.md
+abfss://duckdblabs-data/common/azure_data/l.csv
+abfss://duckdblabs-data/common/azure_data/l.parquet
+abfss://duckdblabs-data/common/azure_data/lineitem.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=AIR/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=SHIP/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=AIR/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=SHIP/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=TRUCK/data_0.csv
 
 # Check data integrity for Azure ADLS GEN2 storage account
 statement error
-SELECT file FROM glob('abfss://duckdblabs-data/common/duckdb_data/**/*.csv') ORDER BY file;
+SELECT file FROM glob('abfss://duckdblabs-data/common/azure_data/**/*.csv') ORDER BY file;
 ----
 Not implemented Error: abfss do not manage recursive lookup patterns, **/*.csv is therefor illegal, only pattern ending by ** are allowed.
 
 query I
-SELECT count(*) FROM 'abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+SELECT count(*) FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
 ----
 2317
 
 query I
-SELECT count(*) FROM 'abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=*/l_shipmode=*/*.csv';
+SELECT count(*) FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*/l_shipmode=*/*.csv';
 ----
 6936
 
 # Check with absolute path
 query I
-SELECT count(*) FROM 'abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
+SELECT count(*) FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
 ----
 1291
 
 # Check with absolute path using unsecure abfs
 query I
-SELECT count(*) FROM 'abfs://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
+SELECT count(*) FROM 'abfs://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
 ----
 1291
 
 # Check fully qualified name
 query I
-SELECT count(*) FROM 'abfss://${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+SELECT count(*) FROM 'abfss://${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
 ----
 2317
 
 # Check fully qualified name using unsecure abfs
 query I
-SELECT count(*) FROM 'abfs://${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+SELECT count(*) FROM 'abfs://${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
 ----
 2317
 
 # Check fully qualified name abfss alternative syntax
 query I
-SELECT count(*) FROM 'abfss://duckdblabs-data/common/duckdb_data@${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+SELECT count(*) FROM 'abfss://duckdblabs-data/common/azure_data@${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
 ----
 2317
 
 # Check fully qualified name abfs alternative syntax
 query I
-SELECT count(*) FROM 'abfs://duckdblabs-data/common/duckdb_data@${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+SELECT count(*) FROM 'abfs://duckdblabs-data/common/azure_data@${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
 ----
 2317
 
@@ -98,17 +98,17 @@ statement ok
 SET azure_http_stats = true;
 
 query II
-EXPLAIN ANALYZE SELECT count(*) FROM 'abfss://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
+EXPLAIN ANALYZE SELECT count(*) FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
 ----
 analyzed_plan	<REGEX>:.*HTTP Stats.*in\: 322\.0 KiB.*\#HEAD\: 1.*GET\: 4.*PUT\: 0.*\#POST\: 0.*
 
 query II
-EXPLAIN ANALYZE SELECT count(*) FROM 'abfs://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
+EXPLAIN ANALYZE SELECT count(*) FROM 'abfs://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
 ----
 analyzed_plan	<REGEX>:.*HTTP Stats.*in\: 322\.0 KiB.*\#HEAD\: 1.*GET\: 4.*PUT\: 0.*\#POST\: 0.*
 
 
 query II
-EXPLAIN ANALYZE SELECT count(*) FROM 'azure://duckdblabs-data/common/duckdb_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
+EXPLAIN ANALYZE SELECT count(*) FROM 'azure://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
 ----
 analyzed_plan	<REGEX>:.*HTTP Stats.*in\: 330\.1 KiB.*\#HEAD\: 1.*GET\: 2.*PUT\: 0.*\#POST\: 0.*

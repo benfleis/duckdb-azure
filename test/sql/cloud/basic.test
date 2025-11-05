@@ -22,7 +22,7 @@ CREATE SECRET az1 (
 )
 
 query I nosort r1
-FROM 'azure://duckdblabs-data/common/duckdb_data/l.parquet';
+FROM 'azure://duckdblabs-data/common/azure_data/l.parquet';
 
 query I nosort r1
 FROM './data/l.parquet'
