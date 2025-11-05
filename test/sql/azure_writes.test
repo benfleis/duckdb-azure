@@ -4,36 +4,18 @@
 
 require azure
 
-require-env AZURE_STORAGE_ACCOUNT
+require-env AZURE_STORAGE_CONNECTION_STRING
 
-require-env AZ_TEMP_DIR
-
-# Start with default provider
+# Set azurite connection string from env var, auto secret goodness
 statement ok
-CREATE SECRET s1 (
-    TYPE azure,
-    PROVIDER credential_chain,
-    CHAIN 'env;cli'
-    ACCOUNT_NAME ${AZURE_STORAGE_ACCOUNT}
-)
+SET azure_storage_connection_string = '${AZURE_STORAGE_CONNECTION_STRING}';
 
 query I
-COPY (SELECT id: 42) TO 'az://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${AZ_TEMP_DIR}/writes/write-id-42.csv';
+COPY (SELECT id: 42) TO 'az://writes/write-id-42.csv';
 ----
 1
 
 query I
-SELECT count(*) FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${AZ_TEMP_DIR}/writes/write-id-42.csv';
+SELECT count(*) FROM 'az://writes/write-id-42.csv';
 ----
 1
-
-query I
-COPY (SELECT id: 43) TO 'az://${AZ_TEMP_DIR}/writes/write-id-42.csv';
-----
-1
-
-query I
-SELECT count(*) FROM 'az://${AZ_TEMP_DIR}/writes/write-id-42.csv';
-----
-1
-

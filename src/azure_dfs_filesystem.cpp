@@ -41,9 +41,10 @@ static void Walk(const Azure::Storage::Files::DataLake::DataLakeFileSystemClient
 	const auto double_star = path_pattern.rfind("**", end_match);
 	if (double_star != std::string::npos) {
 		if (path_pattern.length() > end_match) {
-			throw NotImplementedException("abfss does manage recursive lookup patterns, %s is therefore illegal, only "
-			                              "pattern ending by ** are allowed.",
-			                              path_pattern);
+			throw NotImplementedException(
+			    "abfss does not support recursive lookup patterns, %s is therefore illegal, only "
+			    "pattern ending by ** are allowed.",
+			    path_pattern);
 		}
 		// pattern end with a **, perform recursive listing from this point
 		recursive = true;
@@ -140,12 +141,12 @@ bool AzureDfsStorageFileSystem::CanHandleFile(const string &fpath) {
 }
 
 bool AzureDfsStorageFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
-  auto handle = OpenFile(filename, FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS, opener);
-  if (handle != nullptr) {
-    auto &sfh = handle->Cast<AzureDfsStorageFileHandle>();
-    return sfh.length >= 0; // aka return true; -- avoid optimizers and shenanigans -- deref handle to be sure
-  }
-  return false;
+	auto handle = OpenFile(filename, FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS, opener);
+	if (handle != nullptr) {
+		auto &sfh = handle->Cast<AzureDfsStorageFileHandle>();
+		return sfh.length >= 0; // aka return true; -- avoid optimizers and shenanigans -- deref handle to be sure
+	}
+	return false;
 }
 
 vector<OpenFileInfo> AzureDfsStorageFileSystem::Glob(const string &path, FileOpener *opener) {

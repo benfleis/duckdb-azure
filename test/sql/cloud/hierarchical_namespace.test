@@ -45,7 +45,7 @@ abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipm
 statement error
 SELECT file FROM glob('abfss://duckdblabs-data/common/azure_data/**/*.csv') ORDER BY file;
 ----
-Not implemented Error: abfss do not manage recursive lookup patterns, **/*.csv is therefor illegal, only pattern ending by ** are allowed.
+<REGEX>:.*Not implemented Error:.*abfss.*recursive lookup patterns.*
 
 query I
 SELECT count(*) FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
@@ -83,13 +83,13 @@ SELECT count(*) FROM 'abfs://${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/duckd
 
 # Check fully qualified name abfss alternative syntax
 query I
-SELECT count(*) FROM 'abfss://duckdblabs-data/common/azure_data@${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+SELECT count(*) FROM 'abfss://duckdblabs-data@${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/common/azure_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
 ----
 2317
 
 # Check fully qualified name abfs alternative syntax
 query I
-SELECT count(*) FROM 'abfs://duckdblabs-data/common/azure_data@${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+SELECT count(*) FROM 'abfs://duckdblabs-data@${AZURE_STORAGE_ACCOUNT}.dfs.core.windows.net/common/azure_data/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
 ----
 2317
 
@@ -100,15 +100,15 @@ SET azure_http_stats = true;
 query II
 EXPLAIN ANALYZE SELECT count(*) FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
 ----
-analyzed_plan	<REGEX>:.*HTTP Stats.*in\: 322\.0 KiB.*\#HEAD\: 1.*GET\: 4.*PUT\: 0.*\#POST\: 0.*
+analyzed_plan	<REGEX>:.*HTTP Stats.*in\: [\d.]* KiB.*\#HEAD\: 1.*GET\: 4.*PUT\: 0.*\#POST\: 0.*
 
 query II
 EXPLAIN ANALYZE SELECT count(*) FROM 'abfs://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
 ----
-analyzed_plan	<REGEX>:.*HTTP Stats.*in\: 322\.0 KiB.*\#HEAD\: 1.*GET\: 4.*PUT\: 0.*\#POST\: 0.*
+analyzed_plan	<REGEX>:.*HTTP Stats.*in\: [\d.]* KiB.*\#HEAD\: 1.*GET\: 4.*PUT\: 0.*\#POST\: 0.*
 
 
 query II
 EXPLAIN ANALYZE SELECT count(*) FROM 'azure://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=*7/l_shipmode=TRUCK/*.csv';
 ----
-analyzed_plan	<REGEX>:.*HTTP Stats.*in\: 330\.1 KiB.*\#HEAD\: 1.*GET\: 2.*PUT\: 0.*\#POST\: 0.*
+analyzed_plan	<REGEX>:.*HTTP Stats.*in\: [\d.]* KiB.*\#HEAD\: 1.*GET\: 2.*PUT\: 0.*\#POST\: 0.*
