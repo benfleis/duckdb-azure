@@ -1,0 +1,39 @@
+# name: test/sql/azure_writes.test
+# description: test azure extension writes
+# group: [sql]
+
+require azure
+
+require-env AZURE_STORAGE_ACCOUNT
+
+require-env AZ_TEMP_DIR
+
+# Start with default provider
+statement ok
+CREATE SECRET s1 (
+    TYPE azure,
+    PROVIDER credential_chain,
+    CHAIN 'env;cli'
+    ACCOUNT_NAME ${AZURE_STORAGE_ACCOUNT}
+)
+
+query I
+COPY (SELECT id: 42) TO 'az://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${AZ_TEMP_DIR}/writes/write-id-42.csv';
+----
+1
+
+query I
+SELECT count(*) FROM 'azure://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${AZ_TEMP_DIR}/writes/write-id-42.csv';
+----
+1
+
+query I
+COPY (SELECT id: 43) TO 'az://${AZ_TEMP_DIR}/writes/write-id-42.csv';
+----
+1
+
+query I
+SELECT count(*) FROM 'az://${AZ_TEMP_DIR}/writes/write-id-42.csv';
+----
+1
+

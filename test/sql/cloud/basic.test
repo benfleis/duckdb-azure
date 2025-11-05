@@ -1,6 +1,6 @@
 # name: test/sql/cloud/basic.test
 # description: confirm queried data is correct
-# group: [azure]
+# group: [cloud]
 
 require azure
 
@@ -22,7 +22,7 @@ CREATE SECRET az1 (
 )
 
 query I nosort r1
-FROM 'azure://testing-private/l.parquet';
+FROM 'azure://duckdblabs-data/common/duckdb_data/l.parquet';
 
 query I nosort r1
 FROM './data/l.parquet'

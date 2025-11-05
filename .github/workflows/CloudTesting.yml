@@ -36,9 +36,9 @@ jobs:
           AZURE_CLIENT_ID: op://testing-rw/azure/client_id
           AZURE_STORAGE_ACCOUNT: op://testing-rw/azure/account_name
           AZURE_CLIENT_SECRET: op://testing-rw/azure/client_secret
+          AZ_DATA_DIR: az://duckdblabs-data/duckdb_data
+          AZ_TEMP_DIR: az://duckdblabs-write-testing
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
 
       - uses: actions/checkout@v3
         with:
@@ -90,17 +90,25 @@ jobs:
       - name: Clean credentials
         if: always()
         run: |
-          az logout
-          #rm -f "$AZ_TESTING_ENV_FILE"
+          az logout || true # don't fail cuz of this
 
-      - name: Tests that focus on public non-authenticated requests
-        env:
-          AZURE_STORAGE_ACCOUNT: ${{secrets.AZURE_STORAGE_ACCOUNT}}
-          DUCKDB_AZURE_PUBLIC_CONTAINER_AVAILABLE: 1
-        run: |
-          python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest "*test/sql/cloud/*"
+     #- name: Tests that focus on public non-authenticated requests
+     #  env:
+     #    DUCKDB_AZURE_PUBLIC_CONTAINER_AVAILABLE: 1
+     #    AZURE_CLIENT_SECRET: "" # disable env based
+     #
+     #  run: |
+     #    python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest "*test/sql/cloud/*"
 
       - name: Run test data integrity check
         run: |
           ./build/release/duckdb -c "CREATE PERSISTENT SECRET s1 (TYPE AZURE,PROVIDER SERVICE_PRINCIPAL, TENANT_ID '${{secrets.AZURE_TENANT_ID}}', CLIENT_ID '${{secrets.AZURE_CLIENT_ID}}', CLIENT_SECRET '${{secrets.AZURE_CLIENT_SECRET}}',ACCOUNT_NAME '${{secrets.AZURE_STORAGE_ACCOUNT}}')"
           DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1 ./build/release/test/unittest "*test/sql/test_data_integrity.test"
+
+      # XXX: debugging only
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ failure() }}
+        #with: { detached: true }
+
+

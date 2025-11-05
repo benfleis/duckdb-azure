@@ -1,6 +1,6 @@
 # name: test/sql/cloud/access_token_auth.test
 # description: test access-token authentication
-# group: [azure]
+# group: [cloud]
 
 require azure
 
@@ -14,7 +14,7 @@ statement ok
 set allow_persistent_secrets=false
 
 statement error
-SELECT count(*) FROM 'azure://testing-private/l.parquet';
+SELECT count(*) FROM 'azure://duckdblabs-data/common/duckdb_data/l.parquet';
 ----
 Invalid Input Error: No valid Azure credentials found!
 
@@ -27,16 +27,16 @@ CREATE SECRET az1 (
 )
 
 query I
-SELECT count(*) FROM 'azure://testing-private/l.parquet';
+SELECT count(*) FROM 'azure://duckdblabs-data/common/duckdb_data/l.parquet';
 ----
 60175
 
 query I
-SELECT count(*) FROM 'abfss://testing-private/l.parquet';
+SELECT count(*) FROM 'abfss://duckdblabs-data/common/duckdb_data/l.parquet';
 ----
 60175
 
 query I
-FROM glob('az://testing-private/*.parquet');
+FROM glob('az://duckdblabs-data/common/duckdb_data/*.parquet');
 ----
-az://testing-private/l.parquet
+az://duckdblabs-data/common/duckdb_data/l.parquet

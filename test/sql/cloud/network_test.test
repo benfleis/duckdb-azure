@@ -1,6 +1,6 @@
 # name: test/sql/cloud/network_test.test
 # description: confirm HTTP stats fall within expected values
-# group: [azure]
+# group: [cloud]
 
 require azure
 
@@ -14,7 +14,7 @@ statement ok
 set allow_persistent_secrets=false
 
 statement error
-SELECT count(*) FROM 'azure://testing-private/l.parquet';
+SELECT count(*) FROM 'azure://duckdblabs-data/common/duckdb_data/l.parquet';
 ----
 Invalid Input Error: No valid Azure credentials found!
 
@@ -31,13 +31,13 @@ statement ok
 SET azure_http_stats = true;
 
 query II
-EXPLAIN ANALYZE SELECT sum(l_orderkey) FROM 'az://testing-private/l.parquet';
+EXPLAIN ANALYZE SELECT sum(l_orderkey) FROM 'az://duckdblabs-data/common/duckdb_data/l.parquet';
 ----
 analyzed_plan	<REGEX>:.*HTTP Stats.*in\: 4\.9 MiB.*\#HEAD\: 2.*GET\: {1,3}.*PUT\: 0.*\#POST\: 0.*
 
 # Redoing query should still result in same request count
 query II
-EXPLAIN ANALYZE SELECT sum(l_orderkey) FROM 'az://testing-private/l.parquet';
+EXPLAIN ANALYZE SELECT sum(l_orderkey) FROM 'az://duckdblabs-data/common/duckdb_data/l.parquet';
 ----
 analyzed_plan	<REGEX>:.*HTTP Stats.*in\: 4\.9 MiB.*\#HEAD\: 2.*GET\: {1,3}.*PUT\: 0.*\#POST\: 0.*
 
