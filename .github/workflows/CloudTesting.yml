@@ -45,11 +45,18 @@ jobs:
           fetch-depth: 0
           submodules: 'true'
 
+      - name: Setup Cache Persistence
+        uses: actions/cache@v4
+
       - name: Setup Ccache
-        uses: hendrikmuhs/ccache-action@v1.2.11 # Note: pinned due to GLIBC incompatibility in later releases
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
+          variant: sccache
           key: ${{ github.job }}-${{ matrix.duckdb_arch }}
+          restore-keys:
+            - ${{ github.job }}-${{ matrix.duckdb_arch }}]
           verbose: 1
+          evict-old-files: 7d
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11.1
