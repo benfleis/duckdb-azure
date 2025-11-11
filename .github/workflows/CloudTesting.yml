@@ -20,7 +20,13 @@ jobs:
       VCPKG_TOOLCHAIN_PATH: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
       GEN: ninja
       DUCKDB_PLATFORM: linux_amd64
-      DUCKDB_AZ_DATA_DIR: duckdblabs-data/common/azure_data # typ. prefix az:// azure:// abfss://
+      # AZ protocol vars
+      AZ_STORAGE_ACCOUNT: duckdblabstestdatablob
+      AZ_DATA_DIR: duckdblabs-data/common/azure_data
+      AZ_TEMP_DIR: duckdblabs-write-testing/extension/azure
+      # ABFSS protocol vars
+      ABFSS_STORAGE_ACCOUNT: duckdblabstestdata
+      ABFSS_DATA_DIR: duckdblabs-data/common/azure_data
 
     steps:
       - name: Install required ubuntu packages
@@ -41,6 +47,7 @@ jobs:
           AZURE_CLIENT_ID: op://testing/azure/client_id
           AZURE_STORAGE_ACCOUNT: op://testing/azure/account_name
           AZURE_CLIENT_SECRET: op://testing/azure/client_secret
+          AZURE_AUTH_ENV: 1
 
       - uses: actions/checkout@v3
         with:

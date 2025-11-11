@@ -6,18 +6,18 @@ require azure
 
 require parquet
 
-require-env DUCKDB_AZ_CLI_LOGGED_IN
+require-env AZ_CLI_LOGGED_IN
 
 require-env AZURE_STORAGE_ACCOUNT
 
-require-env DUCKDB_AZ_DATA_DIR
+require-env AZ_DATA_DIR
 
 
 statement ok
 set allow_persistent_secrets=false
 
 statement error
-SELECT count(*) FROM 'azure://${DUCKDB_AZ_DATA_DIR}/l.parquet';
+SELECT count(*) FROM 'azure://${AZ_DATA_DIR}/l.parquet';
 ----
 Invalid Input Error: No valid Azure credentials found!
 
@@ -30,11 +30,11 @@ CREATE SECRET az1 (
 )
 
 query I
-SELECT count(*) FROM 'azure://${DUCKDB_AZ_DATA_DIR}/l.parquet';
+SELECT count(*) FROM 'azure://${AZ_DATA_DIR}/l.parquet';
 ----
 60175
 
 query I
-FROM glob('az://${DUCKDB_AZ_DATA_DIR}/*.parquet');
+FROM glob('az://${AZ_DATA_DIR}/*.parquet');
 ----
-az://${DUCKDB_AZ_DATA_DIR}/l.parquet
+az://${AZ_DATA_DIR}/l.parquet
