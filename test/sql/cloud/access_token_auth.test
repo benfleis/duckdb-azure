@@ -44,7 +44,6 @@ FROM glob('az://{AZ_DATA_DIR}/*.parquet');
 az://{AZ_DATA_DIR}/l.parquet
 
 
-
 statement ok
 CREATE SECRET abfss1 (
     TYPE AZURE,

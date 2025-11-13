@@ -100,10 +100,7 @@ jobs:
       - name: Tests that focus on public non-authenticated requests
         env:
           DUCKDB_AZURE_PUBLIC_CONTAINER_AVAILABLE: 1
-          DUCKDB_AZ_DATA_DIR: # disable
-          AZURE_CLIENT_SECRET: # disable
-          # TODO: rename this secret to PUBLIC_AZURE_STORAGE_ACCOUNT
-          AZURE_STORAGE_ACCOUNT: duckdbtesting
+          PUBLIC_AZ_STORAGE_ACCOUNT: duckdbtesting
       
         run: |
           python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest "test/sql/cloud/unauthenticated"
@@ -112,3 +109,7 @@ jobs:
         run: |
           ./build/release/duckdb -c "CREATE PERSISTENT SECRET s1 (TYPE AZURE,PROVIDER SERVICE_PRINCIPAL, TENANT_ID '${{secrets.AZURE_TENANT_ID}}', CLIENT_ID '${{secrets.AZURE_CLIENT_ID}}', CLIENT_SECRET '${{secrets.AZURE_CLIENT_SECRET}}',ACCOUNT_NAME '${{secrets.AZURE_STORAGE_ACCOUNT}}')"
           DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1 ./build/release/test/unittest "test/sql/test_data_integrity.test"
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
