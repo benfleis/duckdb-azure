@@ -50,12 +50,12 @@ CREATE SECRET abfss1 (
     TYPE AZURE,
     PROVIDER ACCESS_TOKEN,
     ACCESS_TOKEN '{AZURE_ACCESS_TOKEN}',
-    ACCOUNT_NAME '{ABFSS_STORAGE_ACCOUNT}'
+    ACCOUNT_NAME '{ABFSS_STORAGE_ACCOUNT}',
 	SCOPE 'abfss://'
 )
 
 query I
-SELECT count(*) FROM 'abfss://{AZ_DATA_DIR}/l.parquet';
+SELECT count(*) FROM 'abfss://{ABFSS_DATA_DIR}/l.parquet';
 ----
 60175
 
