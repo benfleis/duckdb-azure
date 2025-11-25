@@ -1,6 +1,6 @@
-# name: test/sql/cloud/env_spn_auth.test
+# name: test/sql/cloud/auth/env_spn_auth.test
 # description: test service principal authentication through env vars
-# group: [cloud]
+# group: [auth]
 
 require azure
 

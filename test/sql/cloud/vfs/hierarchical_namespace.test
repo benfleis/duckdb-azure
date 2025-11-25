@@ -1,6 +1,6 @@
-# name: test/sql/cloud/hierarchical_namespace.test
+# name: test/sql/cloud/vfs/hierarchical_namespace.test
 # description: test azure extension with ADLS GEN2 storage
-# group: [cloud]
+# group: [vfs]
 
 # Require statement will ensure this test is run with this extension loaded
 require azure

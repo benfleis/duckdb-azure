@@ -5,6 +5,7 @@
 #include "duckdb/common/types/value.hpp"
 #include "duckdb/logging/file_system_logger.hpp"
 #include "duckdb/main/client_context.hpp"
+#include "include/azure_filesystem.hpp"
 
 #include <azure/storage/common/storage_exception.hpp>
 
