@@ -30,6 +30,9 @@ public:
 	                           const AzureReadOptions &read_options, Azure::Storage::Blobs::BlobClient blob_client);
 	~AzureBlobStorageFileHandle() override = default;
 
+	void Close() override {
+	}
+
 public:
 	Azure::Storage::Blobs::BlobClient blob_client;
 };

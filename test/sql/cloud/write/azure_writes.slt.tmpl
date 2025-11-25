@@ -1,32 +1,21 @@
-# name: test/sql/cloud/azure_writes.test
+# name: test/sql/cloud/write/azure_writes.test
 # description: test azure extension writes
-# group: [cloud]
+# group: [write]
 
 require azure
 
 require parquet
 
-require-env AZ_TEMP_DIR
-
-require-env AZ_STORAGE_ACCOUNT
-
-require-env AZURE_AUTH_ENV 1
-
-statement ok
-CREATE SECRET az1 (
-    TYPE AZURE,
-    PROVIDER CREDENTIAL_CHAIN,
-    ACCOUNT_NAME '${AZ_STORAGE_ACCOUNT}'
-)
+{{ &azure_authn }}
 
 ## Basic write & read
 query I
-COPY (SELECT id: 42) TO 'az://${AZ_TEMP_DIR}/write-id-42.csv';
+COPY (SELECT id: 42) TO '${TEMP_DIR}/write-id-42.csv';
 ----
 1
 
 query I
-SELECT id FROM 'az://${AZ_TEMP_DIR}/write-id-42.csv';
+SELECT id FROM '${TEMP_DIR}/write-id-42.csv';
 ----
 42
 
@@ -43,18 +32,18 @@ SELECT sum(l_orderkey) FROM lineitem;
 # Copy to CSV
 statement ok
 COPY lineitem
-TO 'az://${AZ_TEMP_DIR}/lineitem-copied.csv';
+TO '${TEMP_DIR}/lineitem-copied.csv';
 
 # ... and confirm result from copy
 query I
-SELECT sum(l_orderkey) FROM 'az://${AZ_TEMP_DIR}/lineitem-copied.csv';
+SELECT sum(l_orderkey) FROM '${TEMP_DIR}/lineitem-copied.csv';
 ----
 1802759573
 
 # Copy to parquet with a couple partitions
 statement ok
 COPY lineitem
-TO 'az://${AZ_TEMP_DIR}/lineitem-partitioned' (
+TO '${TEMP_DIR}/lineitem-partitioned' (
 	FORMAT 'parquet',
 	PARTITION_BY (l_linestatus)
 );
@@ -63,7 +52,7 @@ TO 'az://${AZ_TEMP_DIR}/lineitem-partitioned' (
 query I
 SELECT sum(l_orderkey) 
 FROM read_parquet(
-	'az://${AZ_TEMP_DIR}/lineitem-partitioned/*/*.parquet', 
+	'${TEMP_DIR}/lineitem-partitioned/*/*.parquet', 
 	HIVE_PARTITIONING = true
 )
 ----

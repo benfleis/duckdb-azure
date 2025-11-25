@@ -1,6 +1,6 @@
-# name: test/sql/cloud/cli_auth.test
+# name: test/sql/cloud/auth/cli_auth.test
 # description: test cli authentication
-# group: [cloud]
+# group: [auth]
 
 require azure
 

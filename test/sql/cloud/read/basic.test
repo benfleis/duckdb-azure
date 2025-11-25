@@ -1,6 +1,6 @@
-# name: test/sql/cloud/basic.test
+# name: test/sql/cloud/read/basic.test
 # description: confirm queried data is correct
-# group: [cloud]
+# group: [read]
 
 require azure
 

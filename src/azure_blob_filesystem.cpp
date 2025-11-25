@@ -219,11 +219,14 @@ void AzureBlobStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	if (afh.IsRemoteLoaded()) {
 		return;
 	}
-	afh.file_offset = 0;
-	auto res = afh.blob_client.GetProperties();
-	afh.length = res.Value.BlobSize;
-	afh.last_modified = ToTimestamp(res.Value.LastModified);
-	afh.is_remote_loaded = true;
+	// NOTE: since append is unsupported, little point in extra RTT for truncating write here, whether CREATE or not.
+	if (afh.flags.OpenForReading()) {
+		auto res = afh.blob_client.GetProperties();
+		afh.is_remote_loaded = true;
+		afh.file_offset = 0;
+		afh.length = res.Value.BlobSize;
+		afh.last_modified = ToTimestamp(res.Value.LastModified);
+	}
 }
 
 bool AzureBlobStorageFileSystem::DirectoryExists(const string &dirname, optional_ptr<FileOpener> opener) {
@@ -298,6 +301,7 @@ int64_t AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int6
 }
 
 void AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
+	D_ASSERT(nr_bytes >= 0);
 	auto &afh = handle.Cast<AzureBlobStorageFileHandle>();
 
 	if (!(afh.flags.OpenForWriting() || afh.flags.OpenForAppending())) {
@@ -319,7 +323,7 @@ void AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t
 	auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
 	auto res = append_client.AppendBlock(body_stream);
 	afh.last_modified = ToTimestamp(res.Value.LastModified);
-	D_ASSERT(res.Value.AppendOffset == afh.file_offset);
+	D_ASSERT(idx_t(res.Value.AppendOffset) == afh.file_offset);
 	afh.file_offset += nr_bytes;
 	afh.length += nr_bytes;
 }

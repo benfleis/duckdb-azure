@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+export AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+
+export AZ_STORAGE_ACCOUNT=devstoreaccount1
+export AZ_DATA_DIR="testing-private"
+export AZ_TEMP_DIR="writes"
+
+unset ABFSS_STORAGE_ACCOUNT
+unset ABFSS_DATA_DIR
+unset ABFSS_TEMP_DIR
+
+exec "$@"

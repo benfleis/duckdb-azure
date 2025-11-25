@@ -4,6 +4,7 @@
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/types/value.hpp"
 #include "duckdb/main/client_context.hpp"
+#include "include/azure_filesystem.hpp"
 
 #include <azure/storage/common/storage_exception.hpp>
 

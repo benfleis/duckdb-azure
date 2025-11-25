@@ -1,6 +1,6 @@
-# name: test/sql/cloud/azure_writes_more.test_slow
+# name: test/sql/cloud/write/azure_writes_more.test_slow
 # description: test azure extension writes
-# group: [cloud]
+# group: [write]
 
 require azure
 

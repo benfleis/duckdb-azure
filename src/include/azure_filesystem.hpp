@@ -50,8 +50,6 @@ class AzureStorageFileSystem;
 class AzureFileHandle : public FileHandle {
 public:
 	virtual bool PostConstruct();
-	void Close() override {
-	}
 
 	bool IsRemoteLoaded() {
 		return is_remote_loaded;

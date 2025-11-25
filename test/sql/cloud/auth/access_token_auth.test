@@ -1,6 +1,6 @@
-# name: test/sql/cloud/access_token_auth.test
+# name: test/sql/cloud/auth/access_token_auth.test
 # description: test access-token authentication
-# group: [cloud]
+# group: [auth]
 
 require azure
 

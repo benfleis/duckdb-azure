@@ -1,6 +1,6 @@
-# name: test/sql/cloud/unauthenticated.test
+# name: test/sql/cloud/auth/unauthenticated.test
 # description: test unauthenticated queries
-# group: [cloud]
+# group: [auth]
 
 require azure
 
