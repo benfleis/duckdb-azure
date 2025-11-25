@@ -1,6 +1,6 @@
-# name: test/sql/azure_writes.test
+# name: test/sql/cloud/azure_writes.test
 # description: test azure extension writes
-# group: [sql]
+# group: [cloud]
 
 require azure
 
