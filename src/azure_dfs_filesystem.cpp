@@ -99,7 +99,7 @@ AzureDfsContextState::GetDfsFileSystemClient(const std::string &file_system_name
 AzureDfsStorageFileHandle::AzureDfsStorageFileHandle(AzureDfsStorageFileSystem &fs, const OpenFileInfo &info,
                                                      FileOpenFlags flags, const AzureReadOptions &read_options,
                                                      Azure::Storage::Files::DataLake::DataLakeFileClient client)
-    : AzureFileHandle(fs, info, flags, read_options), file_client(std::move(client)) {
+    : AzureFileHandle(fs, info, flags, read_options), file_client(std::move(client)), is_directory(false) {
 }
 
 //////// AzureDfsStorageFileSystem ////////
