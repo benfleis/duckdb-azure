@@ -185,12 +185,16 @@ bool AzureBlobStorageFileSystem::ListFilesExtended(const string &path_in,
 	}
 	// Normalize: to end with '/' so it's a clear dir prefix
 	auto path = (!path_in.empty() && path_in.back() == '/') ? path_in : (path_in + '/');
-	auto parsed_url = ParseUrl(path);
-	auto storage_context = GetOrCreateStorageContext(opener, path, parsed_url);
-	auto container = storage_context->As<AzureBlobContextState>().GetBlobContainerClient(parsed_url.container);
+	auto url = ParseUrl(path);
+	auto storage_context = GetOrCreateStorageContext(opener, path, url);
+	auto container = storage_context->As<AzureBlobContextState>().GetBlobContainerClient(url.container);
+
+	// NOTE: this code emits directly what it gives, and since there are no dirs in Blob store, it will never emit
+	// directories. This differs from local FS and DFS/ADLSv2. If for consistency's sake we wish to, it would be
+	// relatively straight forward to keep a cache/hash of seen subdirs and emit whenever a new one pops up.
 
 	bool rv = false;
-	const Azure::Storage::Blobs::ListBlobsOptions options = {/* .Prefix = */ parsed_url.path};
+	const Azure::Storage::Blobs::ListBlobsOptions options = {/* .Prefix = */ url.path};
 	for (auto page = container.ListBlobs(options); page.HasPage(); page.MoveToNextPage()) {
 		for (auto &blob : page.Blobs) {
 			// confirm that blob is direct "child" of path, skip any deeper descendents
@@ -198,9 +202,10 @@ bool AzureBlobStorageFileSystem::ListFilesExtended(const string &path_in,
 				continue;
 			}
 			rv = true;
-			OpenFileInfo info(path + blob.Name);
+			OpenFileInfo info(blob.Name);
 			info.extended_info = make_shared_ptr<ExtendedOpenFileInfo>();
 			auto &options = info.extended_info->options;
+			options.emplace("type", "file");
 			options.emplace("file_size", Value::BIGINT(blob.BlobSize));
 			options.emplace("last_modified", Value::TIMESTAMP(ToTimestamp(blob.Details.LastModified)));
 			// NOTE: there's a LOT of metadata available, and tags, etc. -- see
@@ -219,17 +224,47 @@ void AzureBlobStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	if (afh.IsRemoteLoaded()) {
 		return;
 	}
-	// NOTE: since append is unsupported, little point in extra RTT for truncating write here, whether CREATE or not.
-	if (afh.flags.OpenForReading()) {
+	try {
 		auto res = afh.blob_client.GetProperties();
-		afh.is_remote_loaded = true;
-		afh.file_offset = 0;
-		afh.length = res.Value.BlobSize;
-		afh.last_modified = ToTimestamp(res.Value.LastModified);
+		if (afh.flags.ExclusiveCreate()) {
+			throw IOException("AzureBlobStorageFileSystem will not open file: '%s', ExclusiveCreate specified "
+			                  "while file already exists.");
+		} else if (afh.flags.OpenForWriting() && afh.flags.OverwriteExistingFile()) {
+			// truncate
+			auto res_create = afh.blob_client.AsAppendBlobClient().Create();
+			afh.is_remote_loaded = true;
+			afh.last_modified = ToTimestamp(res_create.Value.LastModified);
+			afh.length = 0;
+			afh.file_offset = 0;
+			return;
+		} else {
+			// TODO: IFF blob proto connection to ADLSv2, check header X-Ms-Meta-Hdi_isfolder in raw resp to set
+			// is_directory; see https://forum.rclone.org/t/does-rclone-support-azure-data-lake-gen2/23940/5
+			afh.is_remote_loaded = true;
+			afh.last_modified = ToTimestamp(res.Value.LastModified);
+			afh.length = res.Value.BlobSize;
+			afh.file_offset = 0;
+			return;
+		}
+	} catch (const Azure::Storage::StorageException &e) {
+		if (int(e.StatusCode) == 404 && afh.flags.OpenForWriting() &&
+		    (afh.flags.OverwriteExistingFile() || afh.flags.CreateFileIfNotExists())) {
+			auto res = afh.blob_client.AsAppendBlobClient().Create();
+			afh.is_remote_loaded = true;
+			afh.last_modified = ToTimestamp(res.Value.LastModified);
+			afh.length = 0;
+			afh.file_offset = 0;
+			return;
+		}
+		throw;
 	}
 }
 
 bool AzureBlobStorageFileSystem::DirectoryExists(const string &dirname, optional_ptr<FileOpener> opener) {
+#if 1
+	// Conform to current S3 practice -- always true
+	return true;
+#else
 	// NOTE: existance of directory makes no sense in Blob -- since the concept isn't present.
 	// That said we fake it -- if glob(dir/*) returns anything at all, say it exists, otherwise not.
 	// If we want to, could add an option to behave in this, way, always return true or even always false.
@@ -252,6 +287,7 @@ bool AzureBlobStorageFileSystem::DirectoryExists(const string &dirname, optional
 		                  e.ErrorCode, e.ReasonPhrase);
 	}
 	return !res.Blobs.empty();
+#endif
 }
 
 bool AzureBlobStorageFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
@@ -309,16 +345,13 @@ void AzureBlobStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t
 		throw InternalException("Write called on file opened in read mode");
 	}
 
-	if (location != afh.file_offset || location != afh.length) {
+	if (location != 0 && location != afh.file_offset) {
 		throw InternalException("Write supported only sequentially or at location=0");
 	}
 
 	// NOTE: if changing to BlockBlobClient (probably will do), FileSync below must also become
 	// real. Only with AppendBlobClient is each append committed (sync'd).
 	auto append_client = afh.blob_client.AsAppendBlobClient();
-	if (afh.file_offset == 0) {
-		append_client.Create();
-	}
 	auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
 	auto res = append_client.AppendBlock(body_stream);
 	afh.last_modified = ToTimestamp(res.Value.LastModified);

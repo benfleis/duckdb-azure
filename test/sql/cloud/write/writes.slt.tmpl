@@ -2,20 +2,18 @@
 # description: test azure extension writes
 # group: [write]
 
-require azure
-
-require parquet
+{{ & azure_requires }}
 
 {{ & azure_authn }}
 
 ## Basic write & read
 query I
-COPY (SELECT id: 42) TO '${TEMP_DIR}/write-id-42.csv';
+COPY (SELECT id: 42) TO '{{ env.TEMP_DIR }}/write-id-42.csv';
 ----
 1
 
 query I
-SELECT id FROM '${TEMP_DIR}/write-id-42.csv';
+SELECT id FROM '{{ env.TEMP_DIR }}/write-id-42.csv';
 ----
 42
 
@@ -32,18 +30,18 @@ SELECT sum(l_orderkey) FROM lineitem;
 # Copy to CSV
 statement ok
 COPY lineitem
-TO '${TEMP_DIR}/lineitem-copied.csv';
+TO '{{ env.TEMP_DIR }}/lineitem-copied.csv';
 
 # ... and confirm result from copy
 query I
-SELECT sum(l_orderkey) FROM '${TEMP_DIR}/lineitem-copied.csv';
+SELECT sum(l_orderkey) FROM '{{ env.TEMP_DIR }}/lineitem-copied.csv';
 ----
 1802759573
 
 # Copy to parquet with a couple partitions
 statement ok
 COPY lineitem
-TO '${TEMP_DIR}/lineitem-partitioned' (
+TO '{{ env.TEMP_DIR }}/lineitem-partitioned' (
 	FORMAT 'parquet',
 	PARTITION_BY (l_linestatus)
 );
@@ -52,7 +50,7 @@ TO '${TEMP_DIR}/lineitem-partitioned' (
 query I
 SELECT sum(l_orderkey) 
 FROM read_parquet(
-	'${TEMP_DIR}/lineitem-partitioned/*/*.parquet', 
+	'{{ env.TEMP_DIR }}/lineitem-partitioned/*/*.parquet', 
 	HIVE_PARTITIONING = true
 )
 ----

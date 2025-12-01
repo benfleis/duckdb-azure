@@ -1,19 +1,31 @@
 az_storage_account: &account duckdblabstestdatablob
 az_data_root: common/azure_data
 az_data_dir: &data_dir az://duckdblabs-data/common/azure_data
-az_temp_dir_base: &temp_base az://duckdblabs-write-testing/extension/azure
+az_temp_dir: &temp_base az://duckdblabs-write-testing/extension/azure
 
 az: &az_env
   AZURE_STORAGE_ACCOUNT: *account
+  AZURE_PROTOCOL: az
   DATA_DIR: *data_dir
-  TEMP_DIR_BASE: *temp_base
+  TEMP_DIR: *temp_base
 
 env:
   <<: *az_env
 
+azure_requires: |
+  # standard requires -- see test/configs/cloud_az.yml
+  require azure
+  
+  require parquet
+
+  # only run in az protocol mode
+  require-env AZURE_PROTOCOL az
+
 # NOTE: intent: in a fully functioning mustache setup this can also be a partial/file 
 # instead of data, also allowing direct use of abfss_storage_account instead of $ENV
 az_authn__standard: &authn_std |
+  require-env AZURE_AUTH_ENV 1
+
   require-env AZURE_STORAGE_ACCOUNT
 
   statement ok

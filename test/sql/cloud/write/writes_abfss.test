@@ -2,9 +2,16 @@
 # description: test azure extension writes
 # group: [write]
 
+# standard requires -- see test/configs/cloud_abfss.yml
 require azure
 
 require parquet
+
+# only run in abfss protocol mode
+require-env AZURE_PROTOCOL abfss
+
+
+require-env AZURE_AUTH_ENV 1
 
 require-env AZURE_STORAGE_ACCOUNT
 
@@ -18,12 +25,12 @@ CREATE OR REPLACE SECRET abfss_authn (
 
 ## Basic write & read
 query I
-COPY (SELECT id: 42) TO '${TEMP_DIR}/write-id-42.csv';
+COPY (SELECT id: 42) TO 'abfss://duckdblabs-write-testing/extension/azure/write-id-42.csv';
 ----
 1
 
 query I
-SELECT id FROM '${TEMP_DIR}/write-id-42.csv';
+SELECT id FROM 'abfss://duckdblabs-write-testing/extension/azure/write-id-42.csv';
 ----
 42
 
@@ -40,18 +47,18 @@ SELECT sum(l_orderkey) FROM lineitem;
 # Copy to CSV
 statement ok
 COPY lineitem
-TO '${TEMP_DIR}/lineitem-copied.csv';
+TO 'abfss://duckdblabs-write-testing/extension/azure/lineitem-copied.csv';
 
 # ... and confirm result from copy
 query I
-SELECT sum(l_orderkey) FROM '${TEMP_DIR}/lineitem-copied.csv';
+SELECT sum(l_orderkey) FROM 'abfss://duckdblabs-write-testing/extension/azure/lineitem-copied.csv';
 ----
 1802759573
 
 # Copy to parquet with a couple partitions
 statement ok
 COPY lineitem
-TO '${TEMP_DIR}/lineitem-partitioned' (
+TO 'abfss://duckdblabs-write-testing/extension/azure/lineitem-partitioned' (
 	FORMAT 'parquet',
 	PARTITION_BY (l_linestatus)
 );
@@ -60,7 +67,7 @@ TO '${TEMP_DIR}/lineitem-partitioned' (
 query I
 SELECT sum(l_orderkey) 
 FROM read_parquet(
-	'${TEMP_DIR}/lineitem-partitioned/*/*.parquet', 
+	'abfss://duckdblabs-write-testing/extension/azure/lineitem-partitioned/*/*.parquet', 
 	HIVE_PARTITIONING = true
 )
 ----

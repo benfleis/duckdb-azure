@@ -54,32 +54,25 @@ bool AzureFileHandle::PostConstruct() {
 }
 
 bool AzureStorageFileSystem::LoadFileInfo(AzureFileHandle &handle) {
-	// Reads & Appends need size/offset, and any existence check needs a remote
-	// Pure (unflagged) writes do not, since they create/reset metadata, so we save the RTT
-	if (handle.flags.OpenForReading() || handle.flags.OpenForAppending() || handle.flags.ReturnNullIfNotExists() ||
-	    handle.flags.ReturnNullIfExists()) {
-		try {
-			LoadRemoteFileInfo(handle);
-			if (handle.flags.ReturnNullIfExists()) {
-				return false;
-			}
-		} catch (const Azure::Storage::StorageException &e) {
-			auto status_code = int(e.StatusCode);
-			if ((status_code == 200) && handle.flags.ReturnNullIfExists()) {
-				return false;
-			}
-			if (status_code == 404 && handle.flags.ReturnNullIfNotExists()) {
-				return false;
-			}
-			throw IOException(
-			    "AzureBlobStorageFileSystem open file '%s' failed with code '%s', Reason Phrase: '%s', Message: '%s'",
-			    handle.path, e.ErrorCode, e.ReasonPhrase, e.Message);
-		} catch (const std::exception &e) {
-			throw IOException(
-			    "AzureBlobStorageFileSystem could not open file: '%s', unknown error occurred, this could mean "
-			    "the credentials used were wrong. Original error message: '%s' ",
-			    handle.path, e.what());
+	try {
+		LoadRemoteFileInfo(handle);
+		if (handle.flags.ReturnNullIfExists()) {
+			return false;
 		}
+	} catch (const Azure::Storage::StorageException &e) {
+		if (int(e.StatusCode) == 404 && handle.flags.ReturnNullIfNotExists()) {
+			return false;
+		}
+		throw IOException(
+		    "AzureBlobStorageFileSystem open file '%s' failed with code '%s', Reason Phrase: '%s', Message: '%s'",
+		    handle.path, e.ErrorCode, e.ReasonPhrase, e.Message);
+	} catch (const IOException &e) {
+		throw;
+	} catch (const std::exception &e) {
+		throw IOException(
+		    "AzureBlobStorageFileSystem could not open file: '%s', unknown error occurred, this could mean "
+		    "the credentials used were wrong. Original error message: '%s' ",
+		    handle.path, e.what());
 	}
 	return true;
 }

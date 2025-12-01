@@ -1,6 +1,6 @@
-# name: test/sql/cloud/network_test.test
+# name: test/sql/cloud/regression/network_test.test
 # description: confirm HTTP stats fall within expected values
-# group: [cloud]
+# group: [regression]
 
 require azure
 

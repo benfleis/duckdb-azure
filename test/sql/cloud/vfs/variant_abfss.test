@@ -1,4 +1,4 @@
-# name: test/sql/cloud/vfs/hierarchical_namespace.test
+# name: test/sql/cloud/vfs/variant_abfss.test
 # description: test azure extension with ADLS GEN2 storage
 # group: [vfs]
 
