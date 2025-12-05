@@ -20,9 +20,6 @@
 #include <azure/storage/files/datalake/datalake_options.hpp>
 #include <azure/storage/files/datalake/datalake_responses.hpp>
 #include <cstddef>
-#include <string>
-#include <utility>
-#include <vector>
 
 namespace duckdb {
 const string AzureDfsStorageFileSystem::SCHEME = "abfss";
@@ -256,16 +253,42 @@ void AzureDfsStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	if (afh.IsRemoteLoaded()) {
 		return;
 	}
-	// NOTE: since append is unsupported, little point in extra RTT for truncating write here, whether CREATE or not.
-	if (afh.flags.OpenForWriting() /* || afh.flags.OpenForAppending() */) {
-		auto res = afh.file_client.CreateIfNotExists();
+
+	try {
+		auto res = afh.file_client.GetProperties();
+		if (afh.flags.ExclusiveCreate()) {
+			throw IOException("AzureDfsStorageFileSystem will not open file: '%s', ExclusiveCreate specified "
+			                  "while file already exists.");
+		} else if (afh.flags.OpenForWriting() && afh.flags.OverwriteExistingFile()) {
+			// truncate
+			auto res_create = afh.file_client.Create();
+			afh.is_remote_loaded = true;
+			afh.is_directory = false;
+			afh.last_modified = ToTimestamp(res_create.Value.LastModified);
+			afh.length = 0;
+			afh.file_offset = 0;
+			return;
+		} else {
+			afh.is_remote_loaded = true;
+			afh.is_directory = res.Value.IsDirectory;
+			afh.last_modified = ToTimestamp(res.Value.LastModified);
+			afh.length = afh.is_directory ? 0 : res.Value.FileSize;
+			afh.file_offset = 0;
+			return;
+		}
+	} catch (const Azure::Storage::StorageException &e) {
+		if (int(e.StatusCode) == 404 && afh.flags.OpenForWriting() &&
+		    (afh.flags.OverwriteExistingFile() || afh.flags.CreateFileIfNotExists())) {
+			auto res = afh.file_client.Create();
+			afh.is_remote_loaded = true;
+			afh.is_directory = false;
+			afh.last_modified = ToTimestamp(res.Value.LastModified);
+			afh.length = 0;
+			afh.file_offset = 0;
+			return;
+		}
+		throw;
 	}
-	auto res = afh.file_client.GetProperties();
-	afh.is_remote_loaded = true;
-	afh.file_offset = 0;
-	afh.length = res.Value.FileSize;
-	afh.last_modified = ToTimestamp(res.Value.LastModified);
-	afh.is_directory = res.Value.IsDirectory;
 }
 
 void AzureDfsStorageFileSystem::ReadRange(AzureFileHandle &handle, idx_t file_offset, char *buffer_out,
