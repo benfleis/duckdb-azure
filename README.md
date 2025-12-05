@@ -4,6 +4,14 @@ This extension adds a filesystem abstraction for Azure blob storage to DuckDB. T
 
 When debugging issues, especially authentication, start by adding the environment variable `AZURE_LOG_LEVEL=verbose` to duckdb.
 
+## TODO: Note this and its side effects
+
+<https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-known-issues>
+
+My favorite:
+
+> Third party applications that use REST APIs to work will continue to work if you use them with Data Lake Storage. Applications that call Blob APIs will likely work.
+
 ## Basics
 
 Setup authentication (leverages either Azure CLI or Managed Identity):
@@ -122,4 +130,4 @@ cd duckdb_azure
 GEN=ninja VCPKG_TOOLCHAIN_PATH=$PWD/../vcpkg/scripts/buildsystems/vcpkg.cmake make
 ```
 
-Please also refer to our [Build Guide](https://duckdb.org/dev/building) and [Contribution Guide]([CONTRIBUTING.md](https://github.com/duckdb/duckdb/blob/main/CONTRIBUTING.md)).
+Please also refer to our [Build Guide](https://duckdb.org/dev/building) and [Contribution Guide](<[CONTRIBUTING.md](https://github.com/duckdb/duckdb/blob/main/CONTRIBUTING.md)>).

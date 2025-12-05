@@ -5,6 +5,7 @@
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/shared_ptr.hpp"
+#include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/function/scalar/string_common.hpp"
 #include "duckdb/logging/file_system_logger.hpp"
@@ -107,7 +108,9 @@ AzureDfsStorageFileHandle::AzureDfsStorageFileHandle(AzureDfsStorageFileSystem &
 }
 
 void AzureDfsStorageFileHandle::Close() {
-	file_client.Flush(file_offset);
+	if (flags.OpenForWriting() || flags.OpenForAppending()) {
+		file_client.Flush(file_offset);
+	}
 }
 
 //////// AzureDfsStorageFileSystem ////////
@@ -154,7 +157,7 @@ void AzureDfsStorageFileSystem::CreateDirectory(const string &dirname, optional_
 	auto dir_url = ParseUrl(dirname);
 	auto storage_context = GetOrCreateStorageContext(opener, dirname, dir_url);
 	auto file_system_client = storage_context->As<AzureDfsContextState>().GetDfsFileSystemClient(dir_url.container);
-	file_system_client.GetDirectoryClient(dir_url.path).CreateIfNotExists();
+	file_system_client.GetDirectoryClient(dir_url.path).Create();
 }
 
 bool AzureDfsStorageFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
@@ -210,6 +213,43 @@ vector<OpenFileInfo> AzureDfsStorageFileSystem::Glob(const string &path, FileOpe
 	return result;
 }
 
+bool AzureDfsStorageFileSystem::ListFilesExtended(const string &path_in,
+                                                  const std::function<void(OpenFileInfo &info)> &callback,
+                                                  optional_ptr<FileOpener> opener) {
+	if (path_in.find('*') != string::npos) {
+		throw InvalidInputException("ListFiles does not support globs");
+	}
+	// Normalize: to end with '/' so it's a clear dir prefix
+	auto url = ParseUrl(path_in);
+	auto storage_context = GetOrCreateStorageContext(opener, path_in, url);
+	auto fs = storage_context->As<AzureDfsContextState>().GetDfsFileSystemClient(url.container);
+	auto dir_client = fs.GetDirectoryClient(url.path);
+
+	auto child_strip_len = url.path.size() + (StringUtil::EndsWith(url.path, "/") ? 0 : 1);
+	bool rv = false;
+	for (auto page = dir_client.ListPaths(false); page.HasPage(); page.MoveToNextPage()) {
+		for (auto &child : page.Paths) {
+			rv = true;
+			// Strangely, the DataLake API returns whole path, where the Blob API (correctly?)
+			// only returns the child name without prefix.
+			OpenFileInfo info(child.Name.substr(child_strip_len));
+			info.extended_info = make_shared_ptr<ExtendedOpenFileInfo>();
+			auto &options = info.extended_info->options;
+			Value file_type(child.IsDirectory ? "directory" : "file");
+			options.emplace("type", std::move(file_type));
+			options.emplace("file_size", Value::BIGINT(UnsafeNumericCast<int64_t>(child.FileSize)));
+			options.emplace("last_modified", Value::TIMESTAMP(ToTimestamp(child.LastModified)));
+
+			// NOTE: there's a LOT of metadata available, and tags, etc. -- see
+			// https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/storage/azure-storage-blobs/inc/azure/storage/blobs/rest_client.hpp#L1134
+			// (struct BlobItemDetails) and
+			// https://learn.microsoft.com/en-us/rest/api/storageservices/list-blobs
+			callback(info);
+		}
+	}
+	return rv;
+}
+
 void AzureDfsStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 	auto &afh = handle.Cast<AzureDfsStorageFileHandle>();
 
@@ -217,14 +257,15 @@ void AzureDfsStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 		return;
 	}
 	// NOTE: since append is unsupported, little point in extra RTT for truncating write here, whether CREATE or not.
-	if (afh.flags.OpenForReading() /* || afh.flags.OpenForAppending() */) {
-		auto res = afh.file_client.GetProperties();
-		afh.is_remote_loaded = true;
-		afh.file_offset = 0;
-		afh.length = res.Value.FileSize;
-		afh.last_modified = ToTimestamp(res.Value.LastModified);
-		afh.is_directory = res.Value.IsDirectory;
+	if (afh.flags.OpenForWriting() /* || afh.flags.OpenForAppending() */) {
+		auto res = afh.file_client.CreateIfNotExists();
 	}
+	auto res = afh.file_client.GetProperties();
+	afh.is_remote_loaded = true;
+	afh.file_offset = 0;
+	afh.length = res.Value.FileSize;
+	afh.last_modified = ToTimestamp(res.Value.LastModified);
+	afh.is_directory = res.Value.IsDirectory;
 }
 
 void AzureDfsStorageFileSystem::ReadRange(AzureFileHandle &handle, idx_t file_offset, char *buffer_out,
@@ -279,7 +320,8 @@ void AzureDfsStorageFileSystem::Write(FileHandle &handle, void *buffer, int64_t 
 	DUCKDB_LOG_FILE_SYSTEM_WRITE(handle, nr_bytes, afh.file_offset - nr_bytes);
 
 	auto body_stream = Azure::Core::IO::MemoryBodyStream(static_cast<uint8_t *>(buffer), nr_bytes);
-	afh.file_client.CreateIfNotExists();
+	if (location == 0) {
+	}
 	Azure::Storage::Files::DataLake::AppendFileOptions append_opts;
 	append_opts.Flush = true;
 	auto append_res = afh.file_client.Append(body_stream, afh.file_offset);

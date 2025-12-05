@@ -1,0 +1,42 @@
+# name: test/sql/cloud/vfs_ops.test
+# description: test azure extension vfs ops
+# group: [cloud]
+
+# standard requires -- see test/configs/cloud_abfss.yml
+require azure
+
+require parquet
+
+# only run in abfss protocol mode
+require-env AZURE_PROTOCOL abfss
+
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+statement ok
+CREATE OR REPLACE SECRET abfss_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+
+# This test only confirms that FileExists gets called (not whether it's correct), and it's brittle at that.
+
+statement error
+INSTALL 'abfss://invalid-container/dir/ext.duckdb_extension';
+----
+ContainerNotFound
+
+# NOTE: now test actual existance in az:// only -- abfss:// can only be a cloud test
+statement error
+INSTALL 'abfss://duckdblabs-data/common/azure_data/non-existent.duckdb_extension';
+----
+does not exist
+
+statement error
+INSTALL 'abfss://duckdblabs-data/common/azure_data/l.csv';
+----
+file is not a DuckDB extension
