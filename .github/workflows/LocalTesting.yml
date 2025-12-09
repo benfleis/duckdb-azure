@@ -205,14 +205,14 @@ jobs:
       - name: Test Extension
         shell: bash
         run: |
-          build/release/test/Release/unittest.exe --test-dir . "[sql]"
+          scripts/env_azurite build/release/test/Release/unittest.exe --test-dir . --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "[sql]"
 
       - name: Run test data integrity check
         run: |
           ls build
           ls build/release
           ./build/release/Release/duckdb.exe -c "CREATE PERSISTENT SECRET s1 (TYPE AZURE, CONNECTION_STRING '$AZURE_STORAGE_CONNECTION_STRING')"
-          DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1 build/release/test/Release/unittest.exe "*test/sql/test_data_integrity.test"
+          DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1 scripts/env_azurite build/release/test/Release/unittest.exe --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "*test/sql/test_data_integrity.test"
 
       - name: Azure test server log
         if: always()

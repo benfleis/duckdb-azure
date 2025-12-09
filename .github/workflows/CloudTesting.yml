@@ -75,8 +75,8 @@ jobs:
 
       - name: Test with Service Principal (SPN) in env vars
         run: |
-          scripts/run_azure --az python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/*"
-          scripts/run_azure --abfss python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/*"
+          scripts/env_azure --az python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/*"
+          scripts/env_azure --abfss python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/*"
 
       - name: Test with SPN logged in in azure-cli
         env:
@@ -85,8 +85,8 @@ jobs:
         run: |
           az login --service-principal --user="${AZURE_CLIENT_ID}" --password="${AZURE_CLIENT_SECRET}" --tenant="${AZURE_TENANT_ID}"
           unset AZURE_CLIENT_SECRET # prevent env usage going forward
-          scripts/run_azure --az python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/*"
-          scripts/run_azure --abfss python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/*"
+          scripts/env_azure --az python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/*"
+          scripts/env_azure --abfss python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/*"
 
       - name: Test with access token
         run: |
@@ -104,8 +104,8 @@ jobs:
           PUBLIC_AZ_STORAGE_ACCOUNT: duckdbtesting
       
         run: |
-          scripts/run_azure --az python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/unauthenticated"
-          scripts/run_azure --abfss python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/unauthenticated"
+          scripts/env_azure --az python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/unauthenticated"
+          scripts/env_azure --abfss python3 duckdb/scripts/run_tests_one_by_one.py ./build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "test/sql/cloud/unauthenticated"
 
       - name: Run test data integrity check
         run: |
@@ -115,4 +115,3 @@ jobs:
       - name: Setup tmate session
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3
-
