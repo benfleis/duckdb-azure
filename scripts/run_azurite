@@ -1,13 +1,28 @@
 #!/usr/bin/env bash
 
+# straight from azurite docs
+export AZURE_STORAGE_ACCOUNT=devstoreaccount1
 export AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
-
-export AZ_STORAGE_ACCOUNT=devstoreaccount1
-export AZ_DATA_DIR="testing-private"
-export AZ_TEMP_DIR="writes"
 
 unset ABFSS_STORAGE_ACCOUNT
 unset ABFSS_DATA_DIR
 unset ABFSS_TEMP_DIR
+export AZ_DATA_DIR="testing-private"
+export AZ_TEMP_DIR="writes"
+export AZ_STORAGE_ACCOUNT="$AZURE_STORAGE_ACCOUNT"
+
+export AZURE_PROTOCOL=az
+export DATA_DIR="$AZ_DATADIR"
+export TEMP_DIR="$AZ_TEMPDIR"
+
+# for compatibility, accept --az arg, and fail on --abfss
+[[ -n "$1" && "$1" = "--abfss" ]] && {
+	echo "run_azurite can only operate in --az mode, aborting." >&2
+	exit
+}
+[[ -n "$1" && "$1" = "--az" ]] && {
+	# NOOP
+	shift
+}
 
 exec "$@"

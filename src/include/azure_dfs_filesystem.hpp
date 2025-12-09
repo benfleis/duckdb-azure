@@ -37,7 +37,6 @@ public:
 
 public:
 	Azure::Storage::Files::DataLake::DataLakeFileClient file_client;
-	bool is_directory;
 };
 
 class AzureDfsStorageFileSystem : public AzureStorageFileSystem {
@@ -62,6 +61,9 @@ public:
 	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	void FileSync(FileHandle &handle) override;
+
+	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener) override;
+	virtual bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener) override;
 
 public:
 	static const string SCHEME;

@@ -3,6 +3,7 @@
 #include "azure_storage_account_client.hpp"
 
 #include "duckdb/common/exception.hpp"
+#include "duckdb/common/file_system.hpp"
 #include "duckdb/common/helper.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/string_util.hpp"
@@ -101,7 +102,7 @@ AzureDfsContextState::GetDfsFileSystemClient(const std::string &file_system_name
 AzureDfsStorageFileHandle::AzureDfsStorageFileHandle(AzureDfsStorageFileSystem &fs, const OpenFileInfo &info,
                                                      FileOpenFlags flags, const AzureReadOptions &read_options,
                                                      Azure::Storage::Files::DataLake::DataLakeFileClient client)
-    : AzureFileHandle(fs, info, flags, read_options), file_client(std::move(client)), is_directory(false) {
+    : AzureFileHandle(fs, info, flags, FileType::FILE_TYPE_INVALID, read_options), file_client(std::move(client)) {
 }
 
 void AzureDfsStorageFileHandle::Close() {
@@ -144,7 +145,7 @@ bool AzureDfsStorageFileSystem::CanHandleFile(const string &fpath) {
 
 bool AzureDfsStorageFileSystem::DirectoryExists(const string &dirname, optional_ptr<FileOpener> opener) {
 	auto handle = OpenFile(dirname, FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS, opener);
-	return handle && handle->Cast<AzureDfsStorageFileHandle>().is_directory;
+	return handle && handle->Cast<AzureDfsStorageFileHandle>().GetType() == FileType::FILE_TYPE_DIR;
 }
 
 void AzureDfsStorageFileSystem::CreateDirectory(const string &dirname, optional_ptr<FileOpener> opener) {
@@ -159,7 +160,28 @@ void AzureDfsStorageFileSystem::CreateDirectory(const string &dirname, optional_
 
 bool AzureDfsStorageFileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
 	auto handle = OpenFile(filename, FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS, opener);
-	return handle && !handle->Cast<AzureDfsStorageFileHandle>().is_directory;
+	return handle && handle->Cast<AzureDfsStorageFileHandle>().GetType() == FileType::FILE_TYPE_REGULAR;
+}
+
+void AzureDfsStorageFileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	auto url = ParseUrl(filename);
+	auto storage_context = GetOrCreateStorageContext(opener, filename, url);
+	auto file_system_client = storage_context->As<AzureDfsContextState>().GetDfsFileSystemClient(url.container);
+	auto file_client = file_system_client.GetFileClient(url.path);
+	try {
+		file_client.Delete();
+	} catch (Azure::Storage::StorageException &e) {
+		throw IOException("AzureDfsStorageFileSystem Delete of %s failed with %s Reason Phrase: %s", filename,
+		                  e.ErrorCode, e.ReasonPhrase);
+	}
+}
+
+bool AzureDfsStorageFileSystem::TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+	auto url = ParseUrl(filename);
+	auto storage_context = GetOrCreateStorageContext(opener, filename, url);
+	auto file_system_client = storage_context->As<AzureDfsContextState>().GetDfsFileSystemClient(url.container);
+	auto file_client = file_system_client.GetFileClient(url.path);
+	return file_client.DeleteIfExists().Value.Deleted;
 }
 
 vector<OpenFileInfo> AzureDfsStorageFileSystem::Glob(const string &path, FileOpener *opener) {
@@ -254,38 +276,42 @@ void AzureDfsStorageFileSystem::LoadRemoteFileInfo(AzureFileHandle &handle) {
 		return;
 	}
 
+	// handling a couple situations here:
+	// - does exist, but want exclusive create
+	// - does exist, just get the data
+	// - does exist, truncate (same API as create)
+	// - doesn't exist, must be created (file; dir create doesn't happen here)
+	// - doesn't exist, don't create
+
+	auto set_props = [&](bool is_dir, idx_t length, timestamp_t last_mod) {
+		afh.is_remote_loaded = true; // always set loaded
+		afh.file_type = is_dir ? FileType::FILE_TYPE_DIR : FileType::FILE_TYPE_REGULAR;
+		afh.length = is_dir ? 0 : length;
+		afh.last_modified = last_mod;
+		afh.file_offset = 0; // always reset offset state
+	};
+
+	auto create_file = [&]() {
+		auto res_create = afh.file_client.Create();
+		set_props(false, 0, ToTimestamp(res_create.Value.LastModified));
+	};
+	auto truncate_file = create_file;
+
 	try {
-		auto res = afh.file_client.GetProperties();
+		auto res_props = afh.file_client.GetProperties();
 		if (afh.flags.ExclusiveCreate()) {
 			throw IOException("AzureDfsStorageFileSystem will not open file: '%s', ExclusiveCreate specified "
 			                  "while file already exists.");
 		} else if (afh.flags.OpenForWriting() && afh.flags.OverwriteExistingFile()) {
-			// truncate
-			auto res_create = afh.file_client.Create();
-			afh.is_remote_loaded = true;
-			afh.is_directory = false;
-			afh.last_modified = ToTimestamp(res_create.Value.LastModified);
-			afh.length = 0;
-			afh.file_offset = 0;
-			return;
-		} else {
-			afh.is_remote_loaded = true;
-			afh.is_directory = res.Value.IsDirectory;
-			afh.last_modified = ToTimestamp(res.Value.LastModified);
-			afh.length = afh.is_directory ? 0 : res.Value.FileSize;
-			afh.file_offset = 0;
-			return;
+			return truncate_file();
 		}
+		// NOTE: honor convention for S3/Azure "foo/" empty file -> "foo" dir marker
+		auto is_dir = StringUtil::EndsWith(afh.GetPath(), "/") || res_props.Value.IsDirectory;
+		return set_props(is_dir, res_props.Value.FileSize, ToTimestamp(res_props.Value.LastModified));
 	} catch (const Azure::Storage::StorageException &e) {
 		if (int(e.StatusCode) == 404 && afh.flags.OpenForWriting() &&
 		    (afh.flags.OverwriteExistingFile() || afh.flags.CreateFileIfNotExists())) {
-			auto res = afh.file_client.Create();
-			afh.is_remote_loaded = true;
-			afh.is_directory = false;
-			afh.last_modified = ToTimestamp(res.Value.LastModified);
-			afh.length = 0;
-			afh.file_offset = 0;
-			return;
+			return create_file();
 		}
 		throw;
 	}

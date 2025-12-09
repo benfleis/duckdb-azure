@@ -63,6 +63,9 @@ public:
 	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
 	void FileSync(FileHandle &handle) override;
 
+	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener) override;
+	virtual bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener) override;
+
 public:
 	static const string SCHEME;
 	static const string SHORT_SCHEME;

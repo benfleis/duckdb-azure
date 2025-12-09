@@ -39,11 +39,13 @@ SELECT sum(l_orderkey) FROM '{{ env.TEMP_DIR }}/lineitem-copied.csv';
 1802759573
 
 # Copy to parquet with a couple partitions
+# TODO: replace OVERWRITE_OR_IGNORE with OVERWRITE for safety, once remote OVERWRITE allowed (WIP)
 statement ok
 COPY lineitem
 TO '{{ env.TEMP_DIR }}/lineitem-partitioned' (
 	FORMAT 'parquet',
-	PARTITION_BY (l_linestatus)
+	PARTITION_BY (l_linestatus),
+  OVERWRITE_OR_IGNORE TRUE
 );
 
 # and confirm result from copy
@@ -55,3 +57,16 @@ FROM read_parquet(
 )
 ----
 1802759573
+
+# and finally confirm that it's not overwritten -- overwrites occur on individual parquet files 
+# but hive partitioned should not overwrite (unless flag is set)
+statement error
+COPY lineitem
+TO '{{ env.TEMP_DIR }}/lineitem-partitioned' (
+	FORMAT 'parquet',
+	PARTITION_BY (l_linestatus),
+    OVERWRITE FALSE
+);
+----
+<REGEX>:.*IO Error:.*not empty.*
+

@@ -24,10 +24,10 @@ void AzureContextState::QueryEnd() {
 }
 
 AzureFileHandle::AzureFileHandle(AzureStorageFileSystem &fs, const OpenFileInfo &info, FileOpenFlags flags,
-                                 const AzureReadOptions &read_options)
+                                 FileType file_type, const AzureReadOptions &read_options)
     : FileHandle(fs, info.path, flags), flags(flags),
       // File info
-      is_remote_loaded(false), length(0), last_modified(0),
+      is_remote_loaded(false), file_type(file_type), length(0), last_modified(0),
       // Read info
       buffer_available(0), buffer_idx(0), file_offset(0), buffer_start(0), buffer_end(0),
       // Options

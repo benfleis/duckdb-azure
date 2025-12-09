@@ -1,6 +1,6 @@
-# name: test/sql/cloud/vfs/ops_az.test
+# name: test/sql/cloud/vfs_ops.test
 # description: test azure extension vfs ops
-# group: [vfs]
+# group: [cloud]
 
 # standard requires -- see test/configs/cloud_az.yml
 require azure
