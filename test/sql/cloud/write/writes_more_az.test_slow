@@ -1,4 +1,4 @@
-# name: test/sql/cloud/write/azure_writes_more.test_slow
+# name: test/sql/cloud/write/writes_more_az.test_slow
 # description: test azure extension writes
 # group: [write]
 
