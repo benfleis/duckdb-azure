@@ -30,7 +30,8 @@
 # unittest doesn't (yet) handle test dir root/suffix/etc., take the simple path to
 # avoiding collision with a date/time + small rand here
 # TODO: (maybe) move this into unittest, plus add cleanup that works w/ e.g. azure
-temp_dir_suffix="$(date -Iseconds)--$USER--$(uuidgen --random | cut -b11-17)"
+rand=$(python3 -c 'import uuid; print(str(uuid.uuid4())[10:17])')
+temp_dir_suffix="$USER/$(TZ=Z date +'%Y%m%dT%H%M%SZ')--$rand"
 
 export ABFSS_STORAGE_ACCOUNT=duckdblabstestdata
 export ABFSS_DATA_DIR=duckdblabs-data/common/azure_data
