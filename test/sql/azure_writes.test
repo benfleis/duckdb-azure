@@ -53,7 +53,8 @@ statement ok
 COPY lineitem
 TO 'az://${AZ_TEMP_DIR}/lineitem-partitioned' (
 	FORMAT 'parquet',
-	PARTITION_BY (l_linestatus)
+	PARTITION_BY (l_linestatus),
+	OVERWRITE_OR_IGNORE
 );
 
 # and confirm result from copy

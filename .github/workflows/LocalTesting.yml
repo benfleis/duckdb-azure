@@ -69,7 +69,7 @@ jobs:
 
     - name: Test extension
       run: |
-        make test
+        scripts/env_azurite --az build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" 'test/*'
 
     - name: Run test data integrity check
       run: |
@@ -139,7 +139,7 @@ jobs:
       - name: Test Extension
         shell: bash
         run: |
-          make test
+          scripts/env_azurite --az build/release/test/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" 'test/*'
 
       - name: Run test data integrity check
         run: |
@@ -205,14 +205,16 @@ jobs:
       - name: Test Extension
         shell: bash
         run: |
-          scripts/env_azurite build/release/test/Release/unittest.exe --test-dir . --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "[sql]"
+          scripts/env_azurite --az build/release/test/Release/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" 'test/*'
 
       - name: Run test data integrity check
+        env:
+          DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1
         run: |
           ls build
           ls build/release
           ./build/release/Release/duckdb.exe -c "CREATE PERSISTENT SECRET s1 (TYPE AZURE, CONNECTION_STRING '$AZURE_STORAGE_CONNECTION_STRING')"
-          DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1 scripts/env_azurite build/release/test/Release/unittest.exe --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "*test/sql/test_data_integrity.test"
+          scripts/env_azurite build/release/test/Release/unittest --data-dir "$DATA_DIR" --temp-dir "$TEMP_DIR" "*test/sql/test_data_integrity.test"
 
       - name: Azure test server log
         if: always()
