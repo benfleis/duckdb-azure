@@ -1,7 +1,7 @@
 abfss_storage_account: &account duckdblabstestdata
 abfss_data_root: common/azure_data
 abfss_data_dir: &data_dir abfss://duckdblabs-data/common/azure_data
-abfss_temp_dir: &temp_base abfss://duckdblabs-write-testing/extension/azure
+abfss_temp_dir: &temp_base abfss://duckdblabs-write-testing/extension/azure/{UUID}
 
 abfss: &abfss_env
   AZURE_STORAGE_ACCOUNT: *account

@@ -25,12 +25,12 @@ CREATE OR REPLACE SECRET abfss_authn (
 
 ## Basic write & read
 query I
-COPY (SELECT id: 42) TO 'abfss://duckdblabs-write-testing/extension/azure/write-id-42.csv';
+COPY (SELECT id: 42) TO 'abfss://duckdblabs-write-testing/extension/azure/{UUID}/write-id-42.csv';
 ----
 1
 
 query I
-SELECT id FROM 'abfss://duckdblabs-write-testing/extension/azure/write-id-42.csv';
+SELECT id FROM 'abfss://duckdblabs-write-testing/extension/azure/{UUID}/write-id-42.csv';
 ----
 42
 
@@ -47,11 +47,11 @@ SELECT sum(l_orderkey) FROM lineitem;
 # Copy to CSV
 statement ok
 COPY lineitem
-TO 'abfss://duckdblabs-write-testing/extension/azure/lineitem-copied.csv';
+TO 'abfss://duckdblabs-write-testing/extension/azure/{UUID}/lineitem-copied.csv';
 
 # ... and confirm result from copy
 query I
-SELECT sum(l_orderkey) FROM 'abfss://duckdblabs-write-testing/extension/azure/lineitem-copied.csv';
+SELECT sum(l_orderkey) FROM 'abfss://duckdblabs-write-testing/extension/azure/{UUID}/lineitem-copied.csv';
 ----
 1802759573
 
@@ -59,7 +59,7 @@ SELECT sum(l_orderkey) FROM 'abfss://duckdblabs-write-testing/extension/azure/li
 # TODO: replace OVERWRITE_OR_IGNORE with OVERWRITE for safety, once remote OVERWRITE allowed (WIP)
 statement ok
 COPY lineitem
-TO 'abfss://duckdblabs-write-testing/extension/azure/lineitem-partitioned' (
+TO 'abfss://duckdblabs-write-testing/extension/azure/{UUID}/lineitem-partitioned' (
 	FORMAT 'parquet',
 	PARTITION_BY (l_linestatus),
   OVERWRITE_OR_IGNORE TRUE
@@ -69,7 +69,7 @@ TO 'abfss://duckdblabs-write-testing/extension/azure/lineitem-partitioned' (
 query I
 SELECT sum(l_orderkey) 
 FROM read_parquet(
-	'abfss://duckdblabs-write-testing/extension/azure/lineitem-partitioned/*/*.parquet', 
+	'abfss://duckdblabs-write-testing/extension/azure/{UUID}/lineitem-partitioned/*/*.parquet', 
 	HIVE_PARTITIONING = true
 )
 ----
@@ -79,7 +79,7 @@ FROM read_parquet(
 # but hive partitioned should not overwrite (unless flag is set)
 statement error
 COPY lineitem
-TO 'abfss://duckdblabs-write-testing/extension/azure/lineitem-partitioned' (
+TO 'abfss://duckdblabs-write-testing/extension/azure/{UUID}/lineitem-partitioned' (
 	FORMAT 'parquet',
 	PARTITION_BY (l_linestatus),
     OVERWRITE FALSE
