@@ -219,3 +219,7 @@ jobs:
         shell: bash
         run: |
           cat azurite_log.txt
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
