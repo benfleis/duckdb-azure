@@ -33,14 +33,20 @@ public:
 	                          Azure::Storage::Files::DataLake::DataLakeFileClient client);
 	~AzureDfsStorageFileHandle() override = default;
 
+	void Close() override;
+
 public:
 	Azure::Storage::Files::DataLake::DataLakeFileClient file_client;
-	bool is_directory;
 };
 
 class AzureDfsStorageFileSystem : public AzureStorageFileSystem {
 public:
 	vector<OpenFileInfo> Glob(const string &path, FileOpener *opener = nullptr) override;
+	bool ListFilesExtended(const string &path_in, const std::function<void(OpenFileInfo &info)> &callback,
+	                       optional_ptr<FileOpener> opener) override;
+	bool SupportsListFilesExtended() const override {
+		return true;
+	}
 
 	bool CanHandleFile(const string &fpath) override;
 	void CreateDirectory(const string &directory, optional_ptr<FileOpener> opener = nullptr) override;
@@ -52,6 +58,12 @@ public:
 
 	// From AzureFilesystem
 	void LoadRemoteFileInfo(AzureFileHandle &handle) override;
+	int64_t Write(FileHandle &handle, void *buffer, int64_t nr_bytes) override;
+	void Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) override;
+	void FileSync(FileHandle &handle) override;
+
+	void RemoveFile(const string &filename, optional_ptr<FileOpener> opener) override;
+	virtual bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener) override;
 
 public:
 	static const string SCHEME;

@@ -13,15 +13,12 @@ jobs:
     name: Azurite tests (Linux)
     runs-on: ubuntu-latest
     env:
+      # NOTE: container/authn env is managed in scripts/env_azurite so that local test
+      # runs are easily managed
       VCPKG_TARGET_TRIPLET: 'x64-linux'
       GEN: ninja
       VCPKG_TOOLCHAIN_PATH: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
-      AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;'
       HTTP_PROXY_RUNNING: '1'
-      # AZ protocol vars
-      AZ_STORAGE_ACCOUNT: devstoreaccount1
-      AZ_DATA_DIR: testing-private
-      AZ_TEMP_DIR: writes
 
     steps:
     - uses: actions/checkout@v4
@@ -69,12 +66,14 @@ jobs:
 
     - name: Test extension
       run: |
-        make test
+        scripts/env_azurite --az build/release/test/unittest 'test/*'
 
     - name: Run test data integrity check
+      env:
+        DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE: 1
       run: |
         ./build/release/duckdb -c "CREATE PERSISTENT SECRET s1 (TYPE AZURE, CONNECTION_STRING '$AZURE_STORAGE_CONNECTION_STRING')"
-        DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1 ./build/release/test/unittest "*test/sql/test_data_integrity.test"
+        ./build/release/test/unittest "*test/sql/test_data_integrity.test"
 
     - name: Azure test server log
       if: always()
@@ -97,11 +96,6 @@ jobs:
       OSX_BUILD_ARCH: 'x86_64'
       GEN: ninja
       VCPKG_TOOLCHAIN_PATH: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
-      AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;'
-      # AZ protocol vars
-      AZ_STORAGE_ACCOUNT: devstoreaccount1
-      AZ_DATA_DIR: testing-private
-      AZ_TEMP_DIR: writes
 
     steps:
       - uses: actions/checkout@v3
@@ -139,12 +133,14 @@ jobs:
       - name: Test Extension
         shell: bash
         run: |
-          make test
+          scripts/env_azurite --az build/release/test/unittest 'test/*'
 
       - name: Run test data integrity check
+        env:
+          DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE: 1
         run: |
           ./build/release/duckdb -c "CREATE PERSISTENT SECRET s1 (TYPE AZURE, CONNECTION_STRING '$AZURE_STORAGE_CONNECTION_STRING')"
-          DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1 ./build/release/test/unittest "*test/sql/test_data_integrity.test"
+          ./build/release/test/unittest "*test/sql/test_data_integrity.test"
 
       - name: Azure test server log
         if: always()
@@ -160,11 +156,6 @@ jobs:
       VCPKG_TARGET_TRIPLET: 'x64-windows'
       VCPKG_ROOT: ${{ github.workspace }}\vcpkg
       VCPKG_TOOLCHAIN_PATH: ${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake
-      AZURE_STORAGE_CONNECTION_STRING: 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;'
-      # AZ protocol vars
-      AZ_STORAGE_ACCOUNT: devstoreaccount1
-      AZ_DATA_DIR: testing-private
-      AZ_TEMP_DIR: writes
 
     steps:
       - uses: actions/checkout@v3
@@ -205,17 +196,21 @@ jobs:
       - name: Test Extension
         shell: bash
         run: |
-          build/release/test/Release/unittest.exe --test-dir . "[sql]"
+          scripts/env_azurite --az build/release/test/Release/unittest 'test/*'
 
-      - name: Run test data integrity check
+      - name: Test persistent secret retention
+        env:
+          DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE: 1
         run: |
-          ls build
-          ls build/release
-          ./build/release/Release/duckdb.exe -c "CREATE PERSISTENT SECRET s1 (TYPE AZURE, CONNECTION_STRING '$AZURE_STORAGE_CONNECTION_STRING')"
-          DUCKDB_AZURE_PERSISTENT_SECRET_AVAILABLE=1 build/release/test/Release/unittest.exe "*test/sql/test_data_integrity.test"
+          scripts/env_azurite build/release/test/Release/unittest "test/sql/authn/persistent_secret_p1_create__local_az.test"
+          scripts/env_azurite build/release/test/Release/unittest "test/sql/authn/persistent_secret_p2_use__local_az.test"
 
       - name: Azure test server log
         if: always()
         shell: bash
         run: |
           cat azurite_log.txt
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3

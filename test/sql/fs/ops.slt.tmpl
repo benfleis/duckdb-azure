@@ -1,0 +1,25 @@
+# name: test/sql/fs/ops__{{ suffix }}.test
+# description: test azure extension vfs ops
+# group: [fs]
+
+{{ & azure_requires }}
+
+{{ & azure_authn }}
+
+# This test only confirms that FileExists gets called (not whether it's correct), and it's brittle at that.
+statement error
+INSTALL '{{ env.AZURE_PROTOCOL }}://invalid-container/dir/ext.duckdb_extension';
+----
+ContainerNotFound
+
+# now test actual file existance
+statement error
+INSTALL '{{ env.DATA_DIR }}/non-existent.duckdb_extension';
+----
+does not exist
+
+# and finally should both exist and attempt to fetch, but fail to install
+statement error
+INSTALL '{{ env.DATA_DIR }}/l.csv';
+----
+file is not a DuckDB extension

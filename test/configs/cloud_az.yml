@@ -1,0 +1,59 @@
+az_storage_account: &account duckdblabstestdatablob
+az_data_root: common/azure_data
+az_data_dir: &data_dir az://duckdblabs-data/common/azure_data
+az_temp_dir: &temp_base az://duckdblabs-write-testing/extension/azure
+suffix: cloud_az
+
+az: &az_env
+  AZURE_STORAGE_ACCOUNT: *account
+  AZURE_PROTOCOL: az
+  DATA_DIR: *data_dir
+  TEMP_DIR: *temp_base
+
+env:
+  <<: *az_env
+
+azure_requires: |
+  # standard requires -- see test/configs/cloud_az.yml
+  require azure
+  
+  require parquet
+
+  # only run in cloud+az protocol mode
+  require-env AZURE_PROTOCOL az
+
+  require-env AZURE_PROVIDER cloud
+
+# NOTE: intent: in a fully functioning mustache setup this can also be a partial/file 
+# instead of data, also allowing direct use of abfss_storage_account instead of $ENV
+az_authn__spn_env: &authn_spn_env |
+  require-env AZURE_AUTH_ENV 1
+
+  require-env AZURE_STORAGE_ACCOUNT
+
+  statement ok
+  SET allow_persistent_secrets=false
+
+  statement ok
+  CREATE OR REPLACE SECRET az_authn (
+      TYPE AZURE,
+      PROVIDER CREDENTIAL_CHAIN,
+      ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+  );
+
+az_authn__cli_only: &authn_cli |
+  require-env AZURE_STORAGE_ACCOUNT
+
+  statement ok
+  SET allow_persistent_secrets=false
+
+  statement ok
+  CREATE OR REPLACE SECRET az_authn (
+      TYPE AZURE,
+      PROVIDER CREDENTIAL_CHAIN,
+      CHAIN 'cli',
+      ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+  );
+
+azure_authn: *authn_spn_env
+  

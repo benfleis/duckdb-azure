@@ -4,6 +4,14 @@ This extension adds a filesystem abstraction for Azure blob storage to DuckDB. T
 
 When debugging issues, especially authentication, start by adding the environment variable `AZURE_LOG_LEVEL=verbose` to duckdb.
 
+## TODO: Note this and its side effects
+
+<https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-known-issues>
+
+My favorite:
+
+> Third party applications that use REST APIs to work will continue to work if you use them with Data Lake Storage. Applications that call Blob APIs will likely work.
+
 ## Basics
 
 Setup authentication (leverages either Azure CLI or Managed Identity):
@@ -114,7 +122,7 @@ Check out the tests in `test/sql` for more examples.
 For development, this extension requires [CMake](https://cmake.org), Python3, a `C++11` compliant compiler, and the Azure C++ SDK. Run `make` in the root directory to compile the sources. Run `make debug` to build a non-optimized debug version. Run `make test` to verify that your version works properly after making changes. Install the Azure C++ SDK using [vcpkg](https://vcpkg.io/en/getting-started.html) and set the `VCPKG_TOOLCHAIN_PATH` environment variable when building.
 
 ```shell
-sudo apt-get update && sudo apt-get install -y git g++ cmake ninja-build libssl-dev
+sudo apt-get update && sudo apt-get install -y git g++ cmake pkg-config ninja-build libssl-dev
 git clone --recursive https://github.com/duckdb/duckdb_azure
 git clone https://github.com/microsoft/vcpkg
 ./vcpkg/bootstrap-vcpkg.sh
@@ -122,4 +130,36 @@ cd duckdb_azure
 GEN=ninja VCPKG_TOOLCHAIN_PATH=$PWD/../vcpkg/scripts/buildsystems/vcpkg.cmake make
 ```
 
-Please also refer to our [Build Guide](https://duckdb.org/dev/building) and [Contribution Guide]([CONTRIBUTING.md](https://github.com/duckdb/duckdb/blob/main/CONTRIBUTING.md)).
+## Testing
+
+Tests are typical run both locally, using Azurite (az:// blob store only), and the cloud using
+both Azure's Blob and ADLSv2 storage services.
+
+In order to run tests against Azurite, you'll need to run it with default configuration, and populate
+it with test data:
+
+```
+azurite --location ./azurite 2>&1
+```
+
+In another window, populate the data:
+
+```
+scripts/upload_test_files_to_azurite.sh
+```
+
+And thereafter you can execute the tests with (assuming a debug build):
+
+```
+scripts/env_azurite --az build/debug/test/unittest
+```
+
+Note that while many test names are listed, in this case only those ending with `__local_az` will actually be executed, all `__cloud_*` tests will be skipped in this configuration. Additionally `.test_slow` tests are also skipped by default. To run those, run as follows:
+
+```
+scripts/env_azurite --az build/debug/test/unittest 'test/sql/*'
+```
+
+Cloud based Azure tests can be run similarly; we suggest copying `scripts/env_azure` and editing to set all appropriate variables for your use case (az and/or abfss). The tests can also be authenticated via the az cli. Seek "cli" in [Github Workflow definition](.github/workflow/CloudTesting.yml) to see how `az login` can be used to accomplish this.
+
+Please also refer to our [Build Guide](https://duckdb.org/dev/building) and [Contribution Guide](<[CONTRIBUTING.md](https://github.com/duckdb/duckdb/blob/main/CONTRIBUTING.md)>).

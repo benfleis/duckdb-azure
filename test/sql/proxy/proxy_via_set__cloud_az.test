@@ -1,0 +1,39 @@
+# name: test/sql/proxy/proxy_via_set__cloud_az.test
+# description: test azure extension with a simple proxy
+# group: [proxy]
+
+require-env HTTP_PROXY_RUNNING
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in cloud+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER cloud
+
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET az_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+
+statement ok
+SET azure_http_proxy = 'http://localhost:3128';
+
+query I
+SELECT count(*) FROM 'az://duckdblabs-data/common/azure_data/l.csv';
+----
+60175

@@ -1,0 +1,94 @@
+# name: test/sql/write/writes__cloud_az.test
+# description: test azure extension writes
+# group: [write]
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in cloud+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER cloud
+
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET az_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+
+## Basic write & read
+query I
+COPY (SELECT id: 42) TO 'az://duckdblabs-write-testing/extension/azure/write-id-42.csv';
+----
+1
+
+query I
+SELECT id FROM 'az://duckdblabs-write-testing/extension/azure/write-id-42.csv';
+----
+42
+
+# load lineitem in memory for some copies
+statement ok
+CREATE TABLE lineitem AS FROM './data/l.parquet';
+
+# check source query
+query I
+SELECT sum(l_orderkey) FROM lineitem;
+----
+1802759573
+
+# Copy to CSV
+statement ok
+COPY lineitem
+TO 'az://duckdblabs-write-testing/extension/azure/lineitem-copied.csv';
+
+# ... and confirm result from copy
+query I
+SELECT sum(l_orderkey) FROM 'az://duckdblabs-write-testing/extension/azure/lineitem-copied.csv';
+----
+1802759573
+
+# Copy to parquet with a couple partitions
+# TODO: replace OVERWRITE_OR_IGNORE with OVERWRITE for safety, once remote OVERWRITE allowed (WIP)
+statement ok
+COPY lineitem
+TO 'az://duckdblabs-write-testing/extension/azure/lineitem-partitioned' (
+	FORMAT 'parquet',
+	PARTITION_BY (l_linestatus),
+  OVERWRITE_OR_IGNORE TRUE
+);
+
+# and confirm result from copy
+query I
+SELECT sum(l_orderkey) 
+FROM read_parquet(
+	'az://duckdblabs-write-testing/extension/azure/lineitem-partitioned/*/*.parquet', 
+	HIVE_PARTITIONING = true
+)
+----
+1802759573
+
+# and finally confirm that it's not overwritten -- overwrites occur on individual parquet files 
+# but hive partitioned should not overwrite (unless flag is set)
+statement error
+COPY lineitem
+TO 'az://duckdblabs-write-testing/extension/azure/lineitem-partitioned' (
+	FORMAT 'parquet',
+	PARTITION_BY (l_linestatus),
+    OVERWRITE FALSE
+);
+----
+<REGEX>:.*IO Error:.*not empty.*
+

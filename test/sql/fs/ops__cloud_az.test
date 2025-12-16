@@ -1,0 +1,47 @@
+# name: test/sql/fs/ops__cloud_az.test
+# description: test azure extension vfs ops
+# group: [fs]
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in cloud+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER cloud
+
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET az_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+
+# This test only confirms that FileExists gets called (not whether it's correct), and it's brittle at that.
+statement error
+INSTALL 'az://invalid-container/dir/ext.duckdb_extension';
+----
+ContainerNotFound
+
+# now test actual file existance
+statement error
+INSTALL 'az://duckdblabs-data/common/azure_data/non-existent.duckdb_extension';
+----
+does not exist
+
+# and finally should both exist and attempt to fetch, but fail to install
+statement error
+INSTALL 'az://duckdblabs-data/common/azure_data/l.csv';
+----
+file is not a DuckDB extension

@@ -1,0 +1,45 @@
+# name: test/sql/authn/access_token__cloud_az.test
+# description: test access-token authentication
+# group: [authn]
+
+##
+# CI/cloud specific authn test, so don't include standard authn block
+#
+require-env AZURE_ACCESS_TOKEN
+
+require-env AZURE_STORAGE_ACCOUNT
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in cloud+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER cloud
+
+
+# precondition: clear out any leftover secrets to be sure
+# confirm no access, then confirm access
+statement ok
+DROP SECRET IF EXISTS az_authn;
+
+statement error
+SELECT count(*) FROM 'az://duckdblabs-data/common/azure_data/l.parquet';
+----
+Invalid Input Error: No valid Azure credentials found!
+
+statement ok
+CREATE SECRET az_authn (
+    TYPE AZURE,
+    PROVIDER ACCESS_TOKEN,
+    ACCESS_TOKEN '${AZURE_ACCESS_TOKEN}',
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}',
+    SCOPE 'az://'
+)
+
+query I
+SELECT count(*) FROM 'az://duckdblabs-data/common/azure_data/l.parquet';
+----
+60175

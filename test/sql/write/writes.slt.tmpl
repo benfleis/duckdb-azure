@@ -1,0 +1,72 @@
+# name: test/sql/write/writes__{{ suffix }}.test
+# description: test azure extension writes
+# group: [write]
+
+{{ & azure_requires }}
+
+{{ & azure_authn }}
+
+## Basic write & read
+query I
+COPY (SELECT id: 42) TO '{{ env.TEMP_DIR }}/write-id-42.csv';
+----
+1
+
+query I
+SELECT id FROM '{{ env.TEMP_DIR }}/write-id-42.csv';
+----
+42
+
+# load lineitem in memory for some copies
+statement ok
+CREATE TABLE lineitem AS FROM './data/l.parquet';
+
+# check source query
+query I
+SELECT sum(l_orderkey) FROM lineitem;
+----
+1802759573
+
+# Copy to CSV
+statement ok
+COPY lineitem
+TO '{{ env.TEMP_DIR }}/lineitem-copied.csv';
+
+# ... and confirm result from copy
+query I
+SELECT sum(l_orderkey) FROM '{{ env.TEMP_DIR }}/lineitem-copied.csv';
+----
+1802759573
+
+# Copy to parquet with a couple partitions
+# TODO: replace OVERWRITE_OR_IGNORE with OVERWRITE for safety, once remote OVERWRITE allowed (WIP)
+statement ok
+COPY lineitem
+TO '{{ env.TEMP_DIR }}/lineitem-partitioned' (
+	FORMAT 'parquet',
+	PARTITION_BY (l_linestatus),
+  OVERWRITE_OR_IGNORE TRUE
+);
+
+# and confirm result from copy
+query I
+SELECT sum(l_orderkey) 
+FROM read_parquet(
+	'{{ env.TEMP_DIR }}/lineitem-partitioned/*/*.parquet', 
+	HIVE_PARTITIONING = true
+)
+----
+1802759573
+
+# and finally confirm that it's not overwritten -- overwrites occur on individual parquet files 
+# but hive partitioned should not overwrite (unless flag is set)
+statement error
+COPY lineitem
+TO '{{ env.TEMP_DIR }}/lineitem-partitioned' (
+	FORMAT 'parquet',
+	PARTITION_BY (l_linestatus),
+    OVERWRITE FALSE
+);
+----
+<REGEX>:.*IO Error:.*not empty.*
+

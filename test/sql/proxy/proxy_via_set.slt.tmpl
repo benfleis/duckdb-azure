@@ -1,0 +1,17 @@
+# name: test/sql/proxy/proxy_via_set__{{ suffix }}.test
+# description: test azure extension with a simple proxy
+# group: [proxy]
+
+require-env HTTP_PROXY_RUNNING
+
+{{ & azure_requires }}
+
+{{ & azure_authn }}
+
+statement ok
+SET azure_http_proxy = 'http://localhost:3128';
+
+query I
+SELECT count(*) FROM '{{ env.DATA_DIR }}/l.csv';
+----
+60175

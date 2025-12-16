@@ -1,0 +1,143 @@
+# name: test/sql/regression/data_integrity__cloud_abfss.test
+# description: Check the test data looks as expected
+# group: [regression]
+
+# TODO: confirm/deny and cleanup
+#somehow broken in CI setting, requires bogus env variable to be enabled
+# require-env ENABLE_DATA_INTEGRITY
+
+# standard requires -- see test/configs/cloud_abfss.yml
+require azure
+
+require parquet
+
+# only run in cloud+abfss protocol mode
+require-env AZURE_PROTOCOL abfss
+
+require-env AZURE_PROVIDER cloud
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET abfss_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+
+# Note:
+# * if this test fails, you probably added a file to `./data` when doing so, they need to be added here too
+# * we add contains(file, '.') to avoid failure when using dfs storage (as DFS handle the idea of directory they are also part of the result)
+
+### Check file listing
+query I
+SELECT file FROM glob("abfss://duckdblabs-data/common/azure_data/**") WHERE contains(file, '.') ORDER BY file;
+----
+abfss://duckdblabs-data/common/azure_data/README.md
+abfss://duckdblabs-data/common/azure_data/l.csv
+abfss://duckdblabs-data/common/azure_data/l.parquet
+abfss://duckdblabs-data/common/azure_data/lineitem.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=AIR/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=SHIP/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=AIR/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=SHIP/data_0.csv
+abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=TRUCK/data_0.csv
+
+### Check each file individually
+# l.csv
+query I nosort file1
+FROM './data/l.csv';
+
+query I nosort file1
+FROM 'abfss://duckdblabs-data/common/azure_data/l.csv';
+
+query I nosort file1
+FROM 'abfss://duckdblabs-data/common/azure_data/l.csv';
+
+# l.parquet
+query I nosort file2
+FROM './data/l.parquet';
+
+query I nosort file2
+FROM 'abfss://duckdblabs-data/common/azure_data/l.parquet';
+
+query I nosort file2
+FROM 'abfss://duckdblabs-data/common/azure_data/l.parquet';
+
+# lineitem.csv
+query I nosort file3
+FROM './data/lineitem.csv';
+
+query I nosort file3
+FROM 'abfss://duckdblabs-data/common/azure_data/lineitem.csv';
+
+query I nosort file3
+FROM 'abfss://duckdblabs-data/common/azure_data/lineitem.csv';
+
+# partitioned/l_receipmonth=1997/l_shipmode=AIR/data_0.csv
+query I nosort file4
+FROM './data/partitioned/l_receipmonth=1997/l_shipmode=AIR/data_0.csv';
+
+query I nosort file4
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=AIR/data_0.csv';
+
+query I nosort file4
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=AIR/data_0.csv';
+
+# partitioned/l_receipmonth=1997/l_shipmode=SHIP/data_0.csv
+query I nosort file5
+FROM './data/partitioned/l_receipmonth=1997/l_shipmode=SHIP/data_0.csv';
+
+query I nosort file5
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=SHIP/data_0.csv';
+
+query I nosort file5
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=SHIP/data_0.csv';
+
+# partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv
+query I nosort file6
+FROM './data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
+
+query I nosort file6
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
+
+query I nosort file6
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
+
+# partitioned/l_receipmonth=1998/l_shipmode=AIR/data_0.csv
+query I nosort file7
+FROM './data/partitioned/l_receipmonth=1998/l_shipmode=AIR/data_0.csv';
+
+query I nosort file7
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=AIR/data_0.csv';
+
+query I nosort file7
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=AIR/data_0.csv';
+
+# partitioned/l_receipmonth=1998/l_shipmode=SHIP/data_0.csv
+query I nosort file8
+FROM './data/partitioned/l_receipmonth=1998/l_shipmode=SHIP/data_0.csv';
+
+query I nosort file8
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=SHIP/data_0.csv';
+
+query I nosort file8
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=SHIP/data_0.csv';
+
+# partitioned/l_receipmonth=1998/l_shipmode=TRUCK/data_0.csv
+query I nosort file9
+FROM './data/partitioned/l_receipmonth=1998/l_shipmode=TRUCK/data_0.csv';
+
+query I nosort file9
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=TRUCK/data_0.csv';
+
+query I nosort file9
+FROM 'abfss://duckdblabs-data/common/azure_data/partitioned/l_receipmonth=1998/l_shipmode=TRUCK/data_0.csv';
+
