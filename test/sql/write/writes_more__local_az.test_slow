@@ -1,0 +1,112 @@
+# name: test/sql/write/writes_more__local_az.test_slow
+# description: test azure extension writes
+# group: [write]
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in local+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER local
+
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET az_authn (
+    TYPE AZURE,
+    CONNECTION_STRING 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;',
+    ACCOUNT_NAME 'devstoreaccount1'
+);
+
+
+## Many small writes - 1k
+foreach i 0 1 2 3 4 5 6 7 8 9
+
+foreach j 0 1 2 3 4 5 6 7 8 9
+
+foreach k 0 1 2 3 4 5 6 7 8 9
+
+statement ok
+COPY (SELECT id: '${i}${j}${k}'::INT) 
+TO 'az://writes/many/write-sequential-${i}${j}${k}.csv';
+
+endloop
+
+endloop
+
+endloop
+
+# Read it back as a sum: n*(n+1) / 2
+query I 
+SELECT sum(id) FROM 'az://writes/many/write-sequential-*.csv';
+----
+499500
+
+
+## Some small writes - 10k, via 100 threads
+concurrentloop i 0 100
+
+statement ok
+COPY (
+	SELECT id: ('${i}'::INT * 100) + generate_series
+	FROM generate_series(0, 99)
+)
+TO 'az://writes/many/write-concurrent-${i}.csv' (
+  OVERWRITE_OR_IGNORE TRUE
+);
+
+endloop
+
+# Read it back as a sum: n*(n+1) / 2
+query I 
+SELECT sum(id) FROM 'az://writes/many/write-concurrent-*.csv';
+----
+49995000
+
+
+## Now go for some bigger files
+statement ok
+CREATE TABLE lineitem AS FROM './data/l.parquet';
+
+# check source query
+query I
+SELECT sum(l_orderkey) FROM lineitem;
+----
+1802759573
+
+# Now the big copy, csv file
+statement ok
+COPY (FROM lineitem CROSS JOIN generate_series(1, 10))
+TO 'az://writes/big/lineitem.csv' (
+  OVERWRITE_OR_IGNORE TRUE
+);
+
+# and confirm result from copy
+query I
+SELECT sum(l_orderkey) FROM 'az://writes/big/lineitem.csv';
+----
+18027595730
+
+# Finale: Same but different -- csv -> parquet, and hive partitioned
+statement ok
+COPY (FROM lineitem CROSS JOIN generate_series(1, 10))
+TO 'az://writes/big/lineitem-partitioned' (
+	FORMAT 'parquet',
+	PARTITION_BY (l_returnflag, l_linestatus),
+  OVERWRITE_OR_IGNORE TRUE
+);
+
+# and confirm result from copy
+query I
+SELECT sum(l_orderkey) 
+FROM read_parquet(
+	'az://writes/big/lineitem-partitioned/*/*/*.parquet', 
+	HIVE_PARTITIONING = true
+)
+----
+18027595730

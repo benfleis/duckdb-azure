@@ -1,0 +1,31 @@
+# name: test/sql/read/reads__local_az.test
+# description: confirm queried data is correct
+# group: [read]
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in local+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER local
+
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET az_authn (
+    TYPE AZURE,
+    CONNECTION_STRING 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;',
+    ACCOUNT_NAME 'devstoreaccount1'
+);
+
+
+query I nosort r1
+FROM 'az://testing-private/l.parquet';
+
+query I nosort r1
+FROM './data/l.parquet'

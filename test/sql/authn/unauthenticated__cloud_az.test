@@ -1,0 +1,37 @@
+# name: test/sql/authn/unauthenticated__cloud_az.test
+# description: test unauthenticated queries
+# group: [authn]
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in cloud+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER cloud
+
+
+require-env DUCKDB_AZURE_PUBLIC_CONTAINER_AVAILABLE
+
+require-env PUBLIC_AZ_STORAGE_ACCOUNT
+
+# precondition: clear out any leftover secrets to be sure
+# confirm no access, then confirm access
+statement ok
+DROP SECRET IF EXISTS az_authn;
+
+# Using fully qualified url
+query I nosort r1
+FROM 'az://${PUBLIC_AZ_STORAGE_ACCOUNT}.blob.core.windows.net/testing-public/l.parquet';
+
+# Using a secret to set the account name, we can omit the fully qualified url
+statement ok
+CREATE SECRET s1 (TYPE AZURE, ACCOUNT_NAME '${PUBLIC_AZ_STORAGE_ACCOUNT}')
+
+query I nosort r1
+FROM 'az://testing-public/l.parquet';
+
+query I nosort r1
+FROM './data/l.parquet'

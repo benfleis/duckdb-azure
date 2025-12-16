@@ -1,0 +1,43 @@
+# name: test/sql/regression/http_stats__cloud_abfss.test
+# description: confirm HTTP stats fall within expected values
+# group: [regression]
+
+# standard requires -- see test/configs/cloud_abfss.yml
+require azure
+
+require parquet
+
+# only run in cloud+abfss protocol mode
+require-env AZURE_PROTOCOL abfss
+
+require-env AZURE_PROVIDER cloud
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET abfss_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+
+# Enable http info for the explain analyze statement
+statement ok
+SET azure_http_stats = true;
+
+query II
+EXPLAIN ANALYZE SELECT sum(l_orderkey) FROM 'abfss://duckdblabs-data/common/azure_data/l.parquet';
+----
+analyzed_plan	<REGEX>:.*HTTP Stats.*\#HEAD\: [23].*GET\: [0-3].*PUT\: 0.*\#POST\: 0.*
+
+# Redoing query should still result in same request count
+query II
+EXPLAIN ANALYZE SELECT sum(l_orderkey) FROM 'abfss://duckdblabs-data/common/azure_data/l.parquet';
+----
+analyzed_plan	<REGEX>:.*HTTP Stats.*\#HEAD\: [23].*GET\: [0-3].*PUT\: 0.*\#POST\: 0.*

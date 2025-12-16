@@ -1,0 +1,44 @@
+# name: test/sql/authn/cli__local_az.test
+# description: test cli authentication
+# group: [authn]
+
+##
+# CI/cloud specific authn test, so don't include standard authn block
+#
+require-env AZ_CLI_LOGGED_IN
+
+require-env AZURE_STORAGE_ACCOUNT
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in local+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER local
+
+
+# precondition: clear out any leftover secrets to be sure
+# confirm no access, then confirm access
+statement ok
+DROP SECRET IF EXISTS az_authn;
+
+statement error
+SELECT count(*) FROM 'az://testing-private/l.parquet';
+----
+Invalid Input Error: No valid Azure credentials found!
+
+statement ok
+CREATE SECRET az_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    CHAIN 'cli',
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+)
+
+query I
+SELECT count(*) FROM 'az://testing-private/l.parquet';
+----
+60175

@@ -1,0 +1,4 @@
+# name: test/sql/fs/abfss_specifics__cloud_az.test
+# description: test azure extension with ADLS GEN2 storage
+# group: [fs]
+

@@ -1,0 +1,77 @@
+# name: test/sql/fs/abfss_specifics__{{ suffix }}.test
+# description: test azure extension with ADLS GEN2 storage
+# group: [fs]
+
+{{#abfss}}
+{{ & azure_requires }}
+{{ & azure_authn }}
+
+# Check that with Azure ADLS GEN2 directories are not show in globs
+query I
+SELECT file FROM glob('{{ env.DATA_DIR }}/**') ORDER BY file;
+----
+{{ env.DATA_DIR }}/README.md
+{{ env.DATA_DIR }}/l.csv
+{{ env.DATA_DIR }}/l.parquet
+{{ env.DATA_DIR }}/lineitem.csv
+{{ env.DATA_DIR }}/partitioned/l_receipmonth=1997/l_shipmode=AIR/data_0.csv
+{{ env.DATA_DIR }}/partitioned/l_receipmonth=1997/l_shipmode=SHIP/data_0.csv
+{{ env.DATA_DIR }}/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv
+{{ env.DATA_DIR }}/partitioned/l_receipmonth=1998/l_shipmode=AIR/data_0.csv
+{{ env.DATA_DIR }}/partitioned/l_receipmonth=1998/l_shipmode=SHIP/data_0.csv
+{{ env.DATA_DIR }}/partitioned/l_receipmonth=1998/l_shipmode=TRUCK/data_0.csv
+
+# Check data integrity for Azure ADLS GEN2 storage account
+statement error
+SELECT file FROM glob('{{ env.DATA_DIR }}/**/*.csv') ORDER BY file;
+----
+<REGEX>:.*Not implemented Error:.*abfss.*recursive lookup patterns.*
+
+query I
+SELECT count(*) FROM '{{ env.DATA_DIR }}/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+----
+2317
+
+query I
+SELECT count(*) FROM '{{ env.DATA_DIR }}/partitioned/l_receipmonth=*/l_shipmode=*/*.csv';
+----
+6936
+
+# Check with absolute path
+query I
+SELECT count(*) FROM '{{ env.DATA_DIR }}/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
+----
+1291
+
+# Check with absolute path using unsecure abfs
+query I
+SELECT count(*) FROM 'abfs://{{ abfss_data_container }}/{{ abfss_data_root }}/partitioned/l_receipmonth=1997/l_shipmode=TRUCK/data_0.csv';
+----
+1291
+
+# Check fully qualified name
+query I
+SELECT count(*) FROM 'abfss://{{ env.AZURE_STORAGE_ACCOUNT }}.dfs.core.windows.net/{{ abfss_data_container }}/{{ abfss_data_root }}/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+----
+2317
+
+# Check fully qualified name using unsecure abfs
+query I
+SELECT count(*) FROM 'abfs://{{ env.AZURE_STORAGE_ACCOUNT }}.dfs.core.windows.net/{{ abfss_data_container }}/{{ abfss_data_root }}/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv';
+----
+2317
+
+foreach proto abfs:// abfss://
+
+# Check fully qualified name abfs[s] alternative syntax
+query I
+SELECT count(*) FROM read_csv(
+  '${proto}' || '{{ abfss_data_container }}' || '@{{ env.AZURE_STORAGE_ACCOUNT }}.dfs.core.windows.net/'
+  || '{{ abfss_data_root }}/partitioned/l_receipmonth=*/l_shipmode=TRUCK/*.csv'
+);
+----
+2317
+
+endloop
+
+{{/abfss}}

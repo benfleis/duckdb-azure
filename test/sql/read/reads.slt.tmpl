@@ -1,0 +1,13 @@
+# name: test/sql/read/reads__{{ suffix }}.test
+# description: confirm queried data is correct
+# group: [read]
+
+{{ & azure_requires }}
+
+{{ & azure_authn }}
+
+query I nosort r1
+FROM '{{ env.DATA_DIR }}/l.parquet';
+
+query I nosort r1
+FROM './data/l.parquet'

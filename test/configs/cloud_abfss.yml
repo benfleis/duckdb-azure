@@ -1,0 +1,59 @@
+abfss_storage_account: &account duckdblabstestdata
+abfss_data_container: duckdblabs-data
+abfss_data_root: common/azure_data
+abfss_data_dir: &data_dir abfss://duckdblabs-data/common/azure_data
+abfss_temp_dir: &temp_base abfss://duckdblabs-write-testing/extension/azure
+suffix: cloud_abfss
+
+abfss: &abfss_env
+  AZURE_STORAGE_ACCOUNT: *account
+  AZURE_PROTOCOL: abfss
+  DATA_DIR: *data_dir
+  TEMP_DIR: *temp_base
+
+env:
+  <<: *abfss_env
+
+azure_requires: |
+  # standard requires -- see test/configs/cloud_abfss.yml
+  require azure
+  
+  require parquet
+
+  # only run in cloud+abfss protocol mode
+  require-env AZURE_PROTOCOL abfss
+
+  require-env AZURE_PROVIDER cloud
+
+# NOTE: intent: in a fully functioning mustache setup this can also be a partial/file 
+# instead of data, also allowing direct use of abfss_storage_account instead of $ENV
+abfss_authn__spn_env: &authn_spn_env |
+  require-env AZURE_AUTH_ENV 1
+
+  require-env AZURE_STORAGE_ACCOUNT
+
+  statement ok
+  SET allow_persistent_secrets=false
+
+  statement ok
+  CREATE OR REPLACE SECRET abfss_authn (
+      TYPE AZURE,
+      PROVIDER CREDENTIAL_CHAIN,
+      ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+  );
+
+abfss_authn__cli_only: &authn_cli |
+  require-env AZURE_STORAGE_ACCOUNT
+
+  statement ok
+  SET allow_persistent_secrets=false
+
+  statement ok
+  CREATE OR REPLACE SECRET abfss_authn (
+      TYPE AZURE,
+      PROVIDER CREDENTIAL_CHAIN,
+      CHAIN 'cli',
+      ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+  );
+
+azure_authn: *authn_spn_env

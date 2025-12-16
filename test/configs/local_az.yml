@@ -1,0 +1,42 @@
+az_storage_account: &account devstoreaccount1
+az_data_root: ""
+az_data_dir: &data_dir az://testing-private
+az_temp_dir: &temp_base az://writes
+az_connection_string: &conn_str "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+suffix: local_az
+
+az: &az_env
+  AZURE_STORAGE_ACCOUNT: *account
+  AZURE_STORAGE_CONNECTION_STRING: *conn_str
+  AZURE_PROTOCOL: az
+  DATA_DIR: *data_dir
+  TEMP_DIR: *temp_base
+
+env:
+  <<: *az_env
+
+azure_requires: |
+  # standard requires -- see test/configs/cloud_az.yml
+  require azure
+  
+  require parquet
+
+  # only run in local+az protocol mode
+  require-env AZURE_PROTOCOL az
+
+  require-env AZURE_PROVIDER local
+
+# NOTE: intent: in a fully functioning mustache setup this can also be a partial/file 
+# instead of data, also allowing direct use of abfss_storage_account instead of $ENV
+az_authn__conn_str: &authn_conn_str |
+  statement ok
+  SET allow_persistent_secrets=false
+
+  statement ok
+  CREATE OR REPLACE SECRET az_authn (
+      TYPE AZURE,
+      CONNECTION_STRING 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;',
+      ACCOUNT_NAME 'devstoreaccount1'
+  );
+
+azure_authn: *authn_conn_str

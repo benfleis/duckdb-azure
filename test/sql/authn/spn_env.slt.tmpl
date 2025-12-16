@@ -1,0 +1,32 @@
+# name: test/sql/authn/spn_env__{{ suffix }}.test
+# description: test service principal authentication through env vars
+# group: [authn]
+
+{{ & azure_requires }}
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+# precondition: clear out any leftover secrets to be sure
+# confirm no access, then confirm access
+statement ok
+DROP SECRET IF EXISTS {{ env.AZURE_PROTOCOL }}_authn;
+
+# small variation in error messages, so keep it neutral with invalid input
+statement error
+SELECT count(*) FROM '{{ env.DATA_DIR }}/l.parquet';
+----
+Invalid Input Error
+
+statement ok
+CREATE OR REPLACE SECRET {{ env.AZURE_PROTOCOL }}_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+query I
+SELECT count(*) FROM '{{ env.DATA_DIR }}/l.parquet';
+----
+60175

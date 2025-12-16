@@ -1,0 +1,43 @@
+# name: test/sql/fs/ops__local_az.test
+# description: test azure extension vfs ops
+# group: [fs]
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in local+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER local
+
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET az_authn (
+    TYPE AZURE,
+    CONNECTION_STRING 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;',
+    ACCOUNT_NAME 'devstoreaccount1'
+);
+
+
+# This test only confirms that FileExists gets called (not whether it's correct), and it's brittle at that.
+statement error
+INSTALL 'az://invalid-container/dir/ext.duckdb_extension';
+----
+ContainerNotFound
+
+# now test actual file existance
+statement error
+INSTALL 'az://testing-private/non-existent.duckdb_extension';
+----
+does not exist
+
+# and finally should both exist and attempt to fetch, but fail to install
+statement error
+INSTALL 'az://testing-private/l.csv';
+----
+file is not a DuckDB extension

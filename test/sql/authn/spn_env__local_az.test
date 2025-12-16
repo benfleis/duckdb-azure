@@ -1,0 +1,41 @@
+# name: test/sql/authn/spn_env__local_az.test
+# description: test service principal authentication through env vars
+# group: [authn]
+
+# standard requires -- see test/configs/cloud_az.yml
+require azure
+
+require parquet
+
+# only run in local+az protocol mode
+require-env AZURE_PROTOCOL az
+
+require-env AZURE_PROVIDER local
+
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+# precondition: clear out any leftover secrets to be sure
+# confirm no access, then confirm access
+statement ok
+DROP SECRET IF EXISTS az_authn;
+
+# small variation in error messages, so keep it neutral with invalid input
+statement error
+SELECT count(*) FROM 'az://testing-private/l.parquet';
+----
+Invalid Input Error
+
+statement ok
+CREATE OR REPLACE SECRET az_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+query I
+SELECT count(*) FROM 'az://testing-private/l.parquet';
+----
+60175

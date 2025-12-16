@@ -1,0 +1,61 @@
+# name: test/sql/fs/glob__cloud_abfss.test
+# description: test azure globbing
+# group: [fs]
+
+# standard requires -- see test/configs/cloud_abfss.yml
+require azure
+
+require parquet
+
+# only run in cloud+abfss protocol mode
+require-env AZURE_PROTOCOL abfss
+
+require-env AZURE_PROVIDER cloud
+
+require-env AZURE_AUTH_ENV 1
+
+require-env AZURE_STORAGE_ACCOUNT
+
+statement ok
+SET allow_persistent_secrets=false
+
+statement ok
+CREATE OR REPLACE SECRET abfss_authn (
+    TYPE AZURE,
+    PROVIDER CREDENTIAL_CHAIN,
+    ACCOUNT_NAME '${AZURE_STORAGE_ACCOUNT}'
+);
+
+
+# Testing known blobs
+query I
+SELECT * from GLOB("abfss://duckdblabs-data/common/azure_data/*.*") order by file;
+----
+abfss://duckdblabs-data/common/azure_data/README.md
+abfss://duckdblabs-data/common/azure_data/l.csv
+abfss://duckdblabs-data/common/azure_data/l.parquet
+abfss://duckdblabs-data/common/azure_data/lineitem.csv
+
+query I
+SELECT * from GLOB("abfss://duckdblabs-data/common/azure_data/*.csv") order by file;
+----
+abfss://duckdblabs-data/common/azure_data/l.csv
+abfss://duckdblabs-data/common/azure_data/lineitem.csv
+
+query I
+SELECT * from GLOB("abfss://duckdblabs-data/common/azure_data/*.parquet") order by file;
+----
+abfss://duckdblabs-data/common/azure_data/l.parquet
+
+query I
+SELECT * from GLOB("abfss://duckdblabs-data/common/azure_data/lineitem.*") order by file;
+----
+abfss://duckdblabs-data/common/azure_data/lineitem.csv
+
+
+# SHOULD: Auto glob: "foo" -> "foo/**/*.csv" if foo doesn't exist
+# FAILS: Currently fails because glob support is limited and doesn't support this expr.
+statement error
+SELECT l_shipmode, COUNT(*) FROM read_csv('abfss://duckdblabs-data/common/azure_data/partitioned') GROUP BY l_shipmode ORDER BY l_shipmode;
+----
+Not implemented Error: abfss do not manage recursive lookup patterns
