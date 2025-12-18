@@ -163,6 +163,9 @@ jobs:
           fetch-depth: 0
           submodules: 'true'
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
@@ -210,7 +213,3 @@ jobs:
         shell: bash
         run: |
           cat azurite_log.txt
-
-      - name: Setup tmate session
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
