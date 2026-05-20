@@ -33,7 +33,7 @@ AzureFileHandle::AzureFileHandle(AzureStorageFileSystem &fs, const OpenFileInfo 
       // Options
       options(options) {
 	if (!flags.RequireParallelAccess() && !flags.DirectIO()) {
-		read_buffer = duckdb::unique_ptr<data_t[]>(new data_t[options.read_buffer_size]);
+		concurrent_read_buffers = duckdb::unique_ptr<data_t[]>(new data_t[options.read_buffer_size * options.read_threads]);
 	}
 
 	// Set metadata of file when available, it avoids to invoke to the storage to get them.
@@ -146,7 +146,7 @@ void AzureStorageFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_b
 		auto buffer_read_len = MinValue<idx_t>(hfh.buffer_available, to_read);
 		if (buffer_read_len > 0) {
 			D_ASSERT(hfh.buffer_start + hfh.buffer_idx + buffer_read_len <= hfh.buffer_end);
-			memcpy((char *)buffer + buffer_offset, hfh.read_buffer.get() + hfh.buffer_idx, buffer_read_len);
+			memcpy((char *)buffer + buffer_offset, hfh.concurrent_read_buffers.get() + hfh.buffer_idx, buffer_read_len);
 
 			buffer_offset += buffer_read_len;
 			to_read -= buffer_read_len;
@@ -157,7 +157,8 @@ void AzureStorageFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_b
 		}
 
 		if (to_read > 0 && hfh.buffer_available == 0) {
-			auto new_buffer_available = MinValue<idx_t>(hfh.options.read_buffer_size, hfh.length - hfh.file_offset);
+			auto new_buffer_available = MinValue<idx_t>(hfh.options.read_buffer_size * hfh.options.read_threads,
+			                                             hfh.length - hfh.file_offset);
 
 			// Bypass buffer if we read more than buffer size
 			if (to_read > new_buffer_available) {
@@ -167,7 +168,7 @@ void AzureStorageFileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_b
 				hfh.file_offset += to_read;
 				break;
 			} else {
-				ReadRange(hfh, hfh.file_offset, (char *)hfh.read_buffer.get(), new_buffer_available);
+				ReadRange(hfh, hfh.file_offset, (char *)hfh.concurrent_read_buffers.get(), new_buffer_available);
 				hfh.buffer_available = new_buffer_available;
 				hfh.buffer_idx = 0;
 				hfh.buffer_start = hfh.file_offset;
@@ -259,13 +260,13 @@ AzureOptions AzureStorageFileSystem::ParseAzureOptions(optional_ptr<FileOpener> 
 	AzureOptions options;
 
 	Value concurrency_val;
-	if (FileOpener::TryGetCurrentSetting(opener, "azure_read_transfer_concurrency", concurrency_val)) {
-		options.read_transfer_concurrency = concurrency_val.GetValue<int32_t>();
+	if (FileOpener::TryGetCurrentSetting(opener, "azure_read_transfer_concurrency", concurrency_val) &&
+	    !concurrency_val.IsNull()) {
+		options.read_threads = concurrency_val.GetValue<int32_t>();
 	}
-
-	Value chunk_size_val;
-	if (FileOpener::TryGetCurrentSetting(opener, "azure_read_transfer_chunk_size", chunk_size_val)) {
-		options.read_transfer_chunk_size = chunk_size_val.GetValue<int64_t>();
+	if (FileOpener::TryGetCurrentSetting(opener, "azure_read_threads", concurrency_val) &&
+	    !concurrency_val.IsNull()) {
+		options.read_threads = concurrency_val.GetValue<int32_t>();
 	}
 
 	Value buffer_size_val;

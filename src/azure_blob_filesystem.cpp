@@ -406,9 +406,9 @@ void AzureBlobStorageFileSystem::ReadRange(AzureFileHandle &handle, idx_t file_o
 		range.Length = buffer_out_len;
 		Azure::Storage::Blobs::DownloadBlobToOptions options;
 		options.Range = range;
-		options.TransferOptions.Concurrency = afh.options.read_transfer_concurrency;
-		options.TransferOptions.InitialChunkSize = afh.options.read_transfer_chunk_size;
-		options.TransferOptions.ChunkSize = afh.options.read_transfer_chunk_size;
+		options.TransferOptions.Concurrency = afh.options.read_threads;
+		options.TransferOptions.InitialChunkSize = static_cast<int64_t>(afh.options.read_buffer_size);
+		options.TransferOptions.ChunkSize = static_cast<int64_t>(afh.options.read_buffer_size);
 		auto res = afh.blob_client.DownloadTo((uint8_t *)buffer_out, buffer_out_len, options);
 
 	} catch (const Azure::Storage::StorageException &e) {

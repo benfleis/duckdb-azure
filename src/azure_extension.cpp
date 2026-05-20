@@ -61,20 +61,14 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                          LogicalType::VARCHAR, "default");
 
 	AzureOptions default_options;
-	config.AddExtensionOption("azure_read_transfer_concurrency",
-	                          "Maximum number of threads the Azure client can use for a single parallel read. "
-	                          "If azure_read_transfer_chunk_size is less than azure_read_buffer_size then setting "
-	                          "this > 1 will allow the Azure client to do concurrent requests to fill the buffer.",
-	                          LogicalType::INTEGER, Value::INTEGER(default_options.read_transfer_concurrency));
-
-	config.AddExtensionOption("azure_read_transfer_chunk_size",
-	                          "Maximum size in bytes that the Azure client will read in a single request. "
-	                          "It is recommended that this is a factor of azure_read_buffer_size.",
-	                          LogicalType::BIGINT, Value::BIGINT(default_options.read_transfer_chunk_size));
+	config.AddExtensionOption("azure_read_threads",
+	                          "Number of concurrent download threads per read. "
+	                          "Total read buffering = azure_read_buffer_size × azure_read_threads.",
+	                          LogicalType::INTEGER, Value::INTEGER(default_options.read_threads));
 
 	config.AddExtensionOption("azure_read_buffer_size",
-	                          "Size of the read buffer. It is recommended that this is evenly divisible by "
-	                          "azure_read_transfer_chunk_size.",
+	                          "Per-thread read buffer size in bytes. "
+	                          "Total read buffering = azure_read_buffer_size × azure_read_threads.",
 	                          LogicalType::UBIGINT, Value::UBIGINT(default_options.read_buffer_size));
 
 	config.AddExtensionOption("azure_write_block_size",
@@ -91,6 +85,12 @@ static void LoadInternal(ExtensionLoader &loader) {
 	                          "Does not affect the 50,000-block blob limit; increase azure_write_block_size for that.",
 	                          LogicalType::UBIGINT, Value::UBIGINT(default_options.write_staged_blocks_per_commit));
 
+	// Deprecated aliases — null default so ParseAzureOptions can detect explicit use.
+	// If both old and new names are set, the new name takes precedence.
+	config.AddExtensionOption("azure_read_transfer_concurrency", "Deprecated: use azure_read_threads.",
+	                          LogicalType::INTEGER, Value());
+	config.AddExtensionOption("azure_read_transfer_chunk_size", "Deprecated: silently ignored.", LogicalType::UBIGINT,
+	                          Value());
 
 	auto *http_proxy = std::getenv("HTTP_PROXY");
 	Value default_http_value = http_proxy ? Value(http_proxy) : Value(nullptr);

@@ -15,14 +15,16 @@
 namespace duckdb {
 
 struct AzureOptions {
+	static const int32_t READ_THREADS_DEFAULT = 5;
+	// 8 MiB - copies rclone's default for concurrent transfers
+	static const idx_t READ_BUFFER_SIZE_DEFAULT = (idx_t)8 * 1024 * 1024;
 	// 8 MiB - Base block size, copies rclone's default for concurrent transfers
 	// 4000 MiB - Azure doc'd max per Append/StageBlock
 	static const idx_t WRITE_BLOCK_SIZE_DEFAULT = (idx_t)8 * 1024 * 1024;
 	static const idx_t WRITE_BLOCK_SIZE_MAX = (idx_t)4000 * 1024 * 1024;
 
-	int32_t read_transfer_concurrency = 5;
-	int64_t read_transfer_chunk_size = (int64_t)8 * 1024 * 1024;
-	idx_t read_buffer_size = (idx_t)8 * 1024 * 1024;
+	int32_t read_threads = READ_THREADS_DEFAULT;
+	idx_t read_buffer_size = READ_BUFFER_SIZE_DEFAULT;
 	idx_t write_block_size = WRITE_BLOCK_SIZE_DEFAULT;
 	idx_t write_staged_blocks_per_commit = 0;
 };
@@ -81,7 +83,8 @@ public:
 	timestamp_t last_modified;
 
 	// Read buffer
-	duckdb::unique_ptr<data_t[]> read_buffer;
+	// N contiguous read_buffer_size buffers; passed as a single region for the SDK to fill in parallel.
+	duckdb::unique_ptr<data_t[]> concurrent_read_buffers;
 	// Read info
 	idx_t buffer_available;
 	idx_t buffer_idx;

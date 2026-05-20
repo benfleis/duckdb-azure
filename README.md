@@ -120,12 +120,21 @@ SET azure_write_block_size = '4000MiB'; -- maximum block size, cap ~190 TiB
 
 The block size can be any positive value up to 4,000 MiB (Azure's per-request limit). Set to `0` to restore the default (8 MiB).
 
+### Read settings
+
+| Setting                  | Default | Description                                                                                          |
+| ------------------------ | ------- | ---------------------------------------------------------------------------------------------------- |
+| `azure_read_threads`     | `5`     | Concurrent download threads per read. Total buffering = `azure_read_buffer_size × azure_read_threads`. |
+| `azure_read_buffer_size` | `8MiB`  | Per-thread read buffer size. Total buffering = `azure_read_buffer_size × azure_read_threads`.        |
+
+Deprecated alias `azure_read_transfer_concurrency` is still accepted; `azure_read_transfer_chunk_size` is silently ignored. If both an alias and its replacement are set, the new name takes precedence.
+
 ### Write settings
 
-| Setting | Default | Description |
-|---|---|---|
-| `azure_write_block_size` | `8MiB` | Size of each block for Blob/DFS writes. `0` restores the default. Max 4,000 MiB. Increase to raise the file size ceiling. |
-| `azure_write_staged_blocks_per_commit` | `0` | Blocks staged before an intermediate commit. `0` disables intermediate commits; partial writes are not visible until the file is closed. |
+| Setting                                | Default | Description                                                                                                                              |
+| -------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `azure_write_block_size`               | `8MiB`  | Size of each block for Blob/DFS writes. `0` restores the default. Max 4,000 MiB. Increase to raise the file size ceiling.                |
+| `azure_write_staged_blocks_per_commit` | `0`     | Blocks staged before an intermediate commit. `0` disables intermediate commits; partial writes are not visible until the file is closed. |
 
 ## Supported architectures
 
