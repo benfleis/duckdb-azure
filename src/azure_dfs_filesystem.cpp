@@ -170,7 +170,7 @@ unique_ptr<AzureFileHandle> AzureDfsStorageFileSystem::CreateHandle(const OpenFi
 		file_path.pop_back();
 	}
 
-	auto handle = make_uniq<AzureDfsStorageFileHandle>(*this, info, flags, storage_context->read_options,
+	auto handle = make_uniq<AzureDfsStorageFileHandle>(*this, info, flags, storage_context->options,
 	                                                   file_system_client.GetFileClient(file_path));
 	if (!handle->PostConstruct()) {
 		return nullptr;
