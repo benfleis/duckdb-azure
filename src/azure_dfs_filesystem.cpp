@@ -10,6 +10,7 @@
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/function/scalar/string_common.hpp"
 #include "duckdb/logging/file_system_logger.hpp"
+#include "duckdb/logging/log_manager.hpp"
 
 #include <algorithm>
 #include <azure/storage/blobs/blob_options.hpp>
