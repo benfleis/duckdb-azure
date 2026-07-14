@@ -1,9 +1,13 @@
-"""Azure suite wiring on ducktest — azurite as an EAGER, env-adopting, self-populating service.
+"""Azure test suites on ducktest.
 
-On selection of the `azurite` suite, the driver (controller, pre-fork) boots azurite, runs `_populate`
-(the rclone equivalent of `scripts/upload_test_files_to_azurite.sh`), and adopts `_azure_env` into
-`os.environ` — so even a bare `.test` body (no `.py` driver, no fixture to pull) gets
-`${AZURE_STORAGE_CONNECTION_STRING}`/`${AZ_DATA_DIR}` and the seeded `data/`. See driver docs/SERVICES.md.
+- ``local`` (test/azurite/) — azurite-backed, smoke / DEFAULT. Eager azurite boots, seeds ``data/`` (the
+  rclone equivalent of scripts/upload_test_files_to_azurite.sh), and adopts the azure connection env, so
+  the bare ``.test`` bodies run with no manual env script.
+- ``cloud`` (test/azure/) — real Azure (AZURE_* creds / ABFSS). Opt-in (``-m cloud``); the bodies'
+  ``require-env`` gates them until creds are present (a ``credential`` wiring is future work).
+- ``proxy`` (test/proxy/) — via squid. Opt-in, deferred (needs a squid service that ``depends_on`` azurite).
+
+Suite/marker names are the ROLES (local/cloud/proxy); the directories are the backing (azurite/azure).
 """
 
 import pathlib
@@ -24,7 +28,7 @@ PRIVATE, PUBLIC, WRITES = (
 
 
 def _populate(block, config):
-    """Structure + data (idempotent): create the containers, sync `data/` into the read ones."""
+    """Structure + data (idempotent): create the containers, sync ``data/`` into the read ones."""
     remote = rclone_remote(block)
     for c in (PRIVATE, PUBLIC, WRITES):
         rclone.mkdir(remote, c)
@@ -33,16 +37,16 @@ def _populate(block, config):
 
 
 def _azure_env(block):
-    """The env a bare `.test` body needs: azurite's connection string/account + AZ_DATA_DIR."""
-    return {**azurite_env(block), "AZ_DATA_DIR": PRIVATE}
+    """The env a bare ``.test`` body needs: azurite's connection string/account + the data/temp dirs."""
+    return {**azurite_env(block), "AZ_DATA_DIR": PRIVATE, "AZ_TEMP_DIR": WRITES}
 
 
 def pytest_configure(config):
     register_suite(
         config,
-        "azurite",
+        "local",
         path="test/azurite",
-        marker="azurite",
+        marker="local",
         default=True,
         services=[
             use_service(
@@ -53,6 +57,8 @@ def pytest_configure(config):
             )
         ],
     )
+    register_suite(config, "cloud", path="test/azure", marker="cloud", default=False)
+    register_suite(config, "proxy", path="test/proxy", marker="proxy", default=False)
 
 
 @pytest.fixture(scope="session")
