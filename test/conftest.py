@@ -51,7 +51,6 @@ def pytest_configure(config):
         services=[
             use_service(
                 AZURITE_SERVICE,
-                provision="eager",
                 to_env=_azure_env,
                 populate=_populate,
             )
