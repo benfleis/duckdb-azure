@@ -53,8 +53,11 @@ AzureFileHandle::AzureFileHandle(AzureStorageFileSystem &fs, const OpenFileInfo 
 			etag = StringValue::Get(entry3->second);
 		}
 		// When glob supplied the full metadata triplet for a read, skip the HEAD (GetProperties) on open.
+		// Exclude trailing-slash paths: those follow the S3/Azure "foo/" dir-marker convention and must
+		// still be resolved to FILE_TYPE_DIR by LoadRemoteFileInfo rather than pre-typed as a regular file.
 		const bool have_all = entry1 != opts.end() && entry2 != opts.end() && entry3 != opts.end();
-		if (have_all && flags.OpenForReading() && !flags.OpenForWriting()) {
+		const bool looks_like_dir = !info.path.empty() && info.path.back() == '/';
+		if (have_all && !looks_like_dir && flags.OpenForReading() && !flags.OpenForWriting()) {
 			file_type = FileType::FILE_TYPE_REGULAR;
 			is_remote_loaded = true;
 		}
