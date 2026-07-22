@@ -47,6 +47,10 @@ AzureFileHandle::AzureFileHandle(AzureStorageFileSystem &fs, const OpenFileInfo 
 		if (entry2 != info.extended_info->options.end()) {
 			last_modified = entry2->second.GetValue<timestamp_t>();
 		}
+		auto entry3 = info.extended_info->options.find("etag");
+		if (entry3 != info.extended_info->options.end()) {
+			etag = entry3->second.ToString();
+		}
 	}
 }
 
@@ -100,6 +104,11 @@ int64_t AzureStorageFileSystem::GetFileSize(FileHandle &handle) {
 timestamp_t AzureStorageFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	auto &afh = handle.Cast<AzureFileHandle>();
 	return afh.last_modified;
+}
+
+string AzureStorageFileSystem::GetVersionTag(FileHandle &handle) {
+	auto &afh = handle.Cast<AzureFileHandle>();
+	return afh.etag;
 }
 
 void AzureStorageFileSystem::Seek(FileHandle &handle, idx_t location) {
@@ -296,6 +305,13 @@ timestamp_t AzureStorageFileSystem::ToTimestamp(const Azure::DateTime &dt) {
 	auto time_point = static_cast<std::chrono::system_clock::time_point>(dt);
 	auto micros = std::chrono::duration_cast<std::chrono::microseconds>(time_point.time_since_epoch()).count();
 	return timestamp_t(micros);
+}
+
+string AzureStorageFileSystem::StripETagQuotes(string etag) {
+	if (etag.size() >= 2 && etag.front() == '"' && etag.back() == '"') {
+		return etag.substr(1, etag.size() - 2);
+	}
+	return etag;
 }
 
 } // namespace duckdb
