@@ -209,6 +209,10 @@ vector<OpenFileInfo> AzureBlobStorageFileSystem::Glob(const string &path, FileOp
 				auto &options = info.extended_info->options;
 				options.emplace("file_size", Value::BIGINT(key.BlobSize));
 				options.emplace("last_modified", Value::TIMESTAMP(ToTimestamp(key.Details.LastModified)));
+				auto etag = StripETagQuotes(key.Details.ETag.ToString());
+				if (!etag.empty()) {
+					options.emplace("etag", Value(std::move(etag)));
+				}
 				result.push_back(info);
 			}
 		}
@@ -262,6 +266,10 @@ bool AzureBlobStorageFileSystem::ListFilesExtended(const string &path_in,
 				options.emplace("type", Value("file"));
 				options.emplace("file_size", Value::BIGINT(blob.BlobSize));
 				options.emplace("last_modified", Value::TIMESTAMP(ToTimestamp(blob.Details.LastModified)));
+				auto etag = StripETagQuotes(blob.Details.ETag.ToString());
+				if (!etag.empty()) {
+					options.emplace("etag", Value(std::move(etag)));
+				}
 				callback(info);
 			} else {
 				// chop off slash + tail, take the remainder and treat as directory, caching it in seen to avoid repeat.

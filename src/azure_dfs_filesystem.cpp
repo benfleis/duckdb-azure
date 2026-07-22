@@ -76,6 +76,10 @@ static void Walk(const Azure::Storage::Files::DataLake::DataLakeFileSystemClient
 					options.emplace("file_size", Value::BIGINT(elt.FileSize));
 					options.emplace("last_modified",
 					                Value::TIMESTAMP(AzureStorageFileSystem::ToTimestamp(elt.LastModified)));
+					auto etag = AzureStorageFileSystem::StripETagQuotes(elt.ETag);
+					if (!etag.empty()) {
+						options.emplace("etag", Value(std::move(etag)));
+					}
 					out_result->push_back(info);
 				}
 			}
@@ -297,6 +301,12 @@ bool AzureDfsStorageFileSystem::ListFilesExtended(const string &path_in,
 			options.emplace("type", std::move(file_type));
 			options.emplace("file_size", Value::BIGINT(UnsafeNumericCast<int64_t>(child.FileSize)));
 			options.emplace("last_modified", Value::TIMESTAMP(ToTimestamp(child.LastModified)));
+			if (!child.IsDirectory) {
+				auto etag = StripETagQuotes(child.ETag);
+				if (!etag.empty()) {
+					options.emplace("etag", Value(std::move(etag)));
+				}
+			}
 
 			// NOTE: there's a LOT of metadata available, and tags, etc. -- see
 			// https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/storage/azure-storage-blobs/inc/azure/storage/blobs/rest_client.hpp#L1134

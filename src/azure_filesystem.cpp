@@ -39,17 +39,24 @@ AzureFileHandle::AzureFileHandle(AzureStorageFileSystem &fs, const OpenFileInfo 
 
 	// Set metadata of file when available, it avoids to invoke to the storage to get them.
 	if (info.extended_info) {
-		auto entry1 = info.extended_info->options.find("file_size");
-		if (entry1 != info.extended_info->options.end()) {
+		auto &opts = info.extended_info->options;
+		auto entry1 = opts.find("file_size");
+		if (entry1 != opts.end()) {
 			length = entry1->second.GetValue<uint64_t>();
 		}
-		auto entry2 = info.extended_info->options.find("last_modified");
-		if (entry2 != info.extended_info->options.end()) {
+		auto entry2 = opts.find("last_modified");
+		if (entry2 != opts.end()) {
 			last_modified = entry2->second.GetValue<timestamp_t>();
 		}
-		auto entry3 = info.extended_info->options.find("etag");
-		if (entry3 != info.extended_info->options.end()) {
-			etag = entry3->second.ToString();
+		auto entry3 = opts.find("etag");
+		if (entry3 != opts.end()) {
+			etag = StringValue::Get(entry3->second);
+		}
+		// When glob supplied the full metadata triplet for a read, skip the HEAD (GetProperties) on open.
+		const bool have_all = entry1 != opts.end() && entry2 != opts.end() && entry3 != opts.end();
+		if (have_all && flags.OpenForReading() && !flags.OpenForWriting()) {
+			file_type = FileType::FILE_TYPE_REGULAR;
+			is_remote_loaded = true;
 		}
 	}
 }
