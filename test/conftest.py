@@ -37,8 +37,14 @@ def _populate(block, config):
 
 
 def _azure_env(block):
-    """The env a bare ``.test`` body needs: azurite's connection string/account + the data/temp dirs."""
-    return {**azurite_env(block), "AZ_DATA_DIR": PRIVATE, "AZ_TEMP_DIR": WRITES}
+    """The env a bare ``.test`` body needs: azurite's connection string/account + the data/temp dirs.
+
+    Plain ``DATA_DIR``/``TEMP_DIR``/``STORAGE_ACCOUNT`` (not ``AZ_``-prefixed): this suite only ever
+    exercises the ``az://`` protocol against the one azurite account, so there's no second simultaneous
+    value to disambiguate (see docs/RESOURCE-PLANNING.md). ``azurite_env`` still layers in its own
+    ``AZ_STORAGE_ACCOUNT`` alias too (driver-side, unused here).
+    """
+    return {**azurite_env(block), "DATA_DIR": PRIVATE, "TEMP_DIR": WRITES, "STORAGE_ACCOUNT": block["account"]}
 
 
 def pytest_configure(config):
