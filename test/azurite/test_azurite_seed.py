@@ -17,7 +17,7 @@ def _names(listing):
 
 def test_env_adopted_for_bare_test_bodies():
     # eager to_env landed in os.environ pre-fork — this is what a bare `.test` require-env sees
-    assert os.environ["DATA_DIR"] == "testing-private"
+    assert os.environ["AZ_DATA_DIR"] == "testing-private"
     assert os.environ["STORAGE_ACCOUNT"] == "devstoreaccount1"
     assert "BlobEndpoint=" in os.environ["AZURE_STORAGE_CONNECTION_STRING"]
 
