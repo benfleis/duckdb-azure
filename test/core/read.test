@@ -1,0 +1,13 @@
+# name: test/sql/core/read.test
+# description: confirm queried data is correct
+# group: [core]
+
+require azure
+
+require parquet
+
+query I nosort r1
+FROM '{DATA_DIR}/l.parquet';
+
+query I nosort r1
+FROM './data/l.parquet'
