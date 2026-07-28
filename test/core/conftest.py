@@ -42,7 +42,7 @@ def _cell_properties(scheme: str, account: str, endpoint: str) -> dict:
     copied into a fresh test's substitution map before the body parses -- `require-env` against
     either name always hard-fails "already defined", override or not). Declaring `data_dir`/
     `temp_dir_root` here routes them (the driver's call, not ours) into `--data-dir`/
-    `--temp-dir-base` instead, which sets the SAME reserved names to OUR values at the source, so
+    `--temp-dir-root` instead, which sets the SAME reserved names to OUR values at the source, so
     `{DATA_DIR}`/`{TEMP_DIR}` in read.test/write.test resolve correctly with no `require-env` gate
     needed (and none possible). `temp_dir_root` gets `/<session-id>/<batch-id>/<test-id>` appended
     by the driver/harness themselves, so no manual suffix is needed for uniqueness."""
@@ -84,7 +84,10 @@ def _spn_available() -> bool:
 
 
 def _azure_secret_sql(value, *, redact=False) -> str:
-    return "LOAD azure;\nCREATE SECRET az1 (TYPE AZURE, PROVIDER CREDENTIAL_CHAIN);\n"
+    """`require azure` (not `LOAD azure;`): --init-sqllogic runs before this file's own `require azure`
+    ever would, and only `require` routes through the reliable LoadExtension path (local-repo install
+    first) -- see driver's `Credential.to_init_sql` docstring."""
+    return "require azure\n\nCREATE SECRET az1 (TYPE AZURE, PROVIDER CREDENTIAL_CHAIN);\n"
 
 
 def pytest_configure(config):

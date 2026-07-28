@@ -1,7 +1,7 @@
 {
   "description": "Run DuckDB Tests with Azure Blob Storage as Data source and Temp storage",
   "data_dir": "az://duckdblabs-data/common/duckdb_data",
-  "temp_dir_base": "az://duckdblabs-write-testing/extension/azure",
+  "temp_dir_root": "az://duckdblabs-write-testing/extension/azure",
   "on_init": "LOAD '{BUILD_DIR}/extension/azure/azure.duckdb_extension'; CREATE OR REPLACE SECRET ( TYPE azure, PROVIDER credential_chain, CHAIN 'env;cli', ACCOUNT_NAME 'duckdblabstestdatablob' );",
   "statically_loaded_extensions": [
     "core_functions",

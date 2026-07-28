@@ -8,14 +8,6 @@ require parquet
 
 require-env AZ_TEMP_DIR
 
-require-env AZURE_STORAGE_CONNECTION_STRING
-
-statement ok
-CREATE SECRET s1 (
-    TYPE azure,
-    CONNECTION_STRING '{AZURE_STORAGE_CONNECTION_STRING}'
-);
-
 ## Basic write & read
 query I
 COPY (SELECT id: 42) TO 'az://{AZ_TEMP_DIR}/write-id-42.csv';

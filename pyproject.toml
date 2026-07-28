@@ -23,7 +23,9 @@ package = false
 
 # TODO: update to tagged release when ready
 [tool.uv.sources]
-duckdb-pytest-driver = { git = "https://github.com/benfleis/duckdb-pytest-driver", branch = "dev/v0.2" }
+# duckdb-pytest-driver = { git = "https://github.com/benfleis/duckdb-pytest-driver", branch = "dev/v0.2" }
+# XXX: NO COMMIT -- local dev against the driver's resource-planning work in progress
+duckdb-pytest-driver = { path = "../driver", editable = true }
 
 # Conform to duckdb's python black settings (so `ruff format` matches CI).
 [tool.ruff]

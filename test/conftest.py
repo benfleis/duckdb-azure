@@ -2,9 +2,30 @@
 
 - ``local`` (test/azurite/) — azurite-backed, smoke / DEFAULT. Eager azurite boots, seeds ``data/`` (the
   rclone equivalent of scripts/upload_test_files_to_azurite.sh), and adopts the azure connection env, so
-  the bare ``.test`` bodies run with no manual env script.
+  the bare ``.test`` bodies run with no manual env script. ``auto_init_sql=True`` also auto-injects
+  AZURITE_SERVICE's own ``CREATE SECRET`` (``azurite_init_sql``, driver-side) ahead of the test body, so
+  a body that just needs A secret to exist -- not testing secret creation/scoping itself -- writes none
+  of its own.
+- ``local_auth`` (test/azurite_auth/) — SAME azurite backing/env as ``local`` (no ``auto_init_sql``,
+  deliberately, and a DISTINCT marker -- see below): these bodies test secret/credential MECHANICS
+  itself (creation, scoping, the no-credentials-configured error path, an invalid-target error message
+  that changes once ANY secret exists) as their actual subject, not incidentally-needed scaffolding --
+  auto-injecting a secret ahead of the body would corrupt exactly what they're asserting (e.g.
+  ``azure.test`` blanks ``azure_storage_connection_string`` and expects "No valid Azure credentials
+  found"; a pre-existing secret would make that silently pass for the wrong reason; ``azure_vfs_ops.test``
+  expects "Cannot identify the storage account" for an invalid ``abfss://`` target -- pre-empted by a
+  secret, DuckDB instead tries to actually connect and gets "Could not connect to server", since Azurite
+  doesn't serve DFS/abfss at all). Split into its own suite because `auto_init_sql` has no per-item
+  opt-out -- only a per-suite one, and `_item_in_suite` has no nearest-path-wins precedence, so a nested
+  carve-out under ``local`` wouldn't actually exclude anything (both suites would still match by path).
+  DISTINCT marker (``local_auth``, not ``local``) is load-bearing, not cosmetic: `_apply_suite_markers`
+  auto-stamps each suite's OWN marker by path, so sharing ``local``'s marker name would make
+  `_item_in_suite`'s marker-check (which can't tell which suite registration caused a given stamp)
+  wrongly match these items against the ``local`` suite too -- reintroducing the exact auto-injection
+  this split exists to prevent. Found live: it did, silently, until the marker was split out.
 - ``cloud`` (test/azure/) — real Azure (AZURE_* creds / ABFSS). Opt-in (``-m cloud``); the bodies'
-  ``require-env`` gates them until creds are present (a ``credential`` wiring is future work).
+  ``require-env`` gates them until creds are present (a ``credential`` wiring is future work -- see
+  ``test/core``'s newer suite for the pattern this one predates and should eventually migrate to).
 - ``proxy`` (test/proxy/) — via squid. Opt-in, deferred (needs a squid service that ``depends_on`` azurite).
 
 Suite/marker names are the ROLES (local/cloud/proxy); the directories are the backing (azurite/azure).
@@ -61,6 +82,21 @@ def pytest_configure(config):
         "local",
         path="test/azurite",
         marker="local",
+        default=True,
+        auto_init_sql=True,
+        services=[
+            use_service(
+                AZURITE_SERVICE,
+                to_env=_azure_env,
+                populate=_populate,
+            )
+        ],
+    )
+    register_suite(
+        config,
+        "local_auth",
+        path="test/azurite_auth",
+        marker="local_auth",
         default=True,
         services=[
             use_service(
